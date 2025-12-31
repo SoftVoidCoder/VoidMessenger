@@ -5,7 +5,8 @@ from datetime import timedelta
 from app import models, schemas, auth
 from app.database import get_db
 
-router = APIRouter(prefix="/users", tags=["users"])
+# УБРАЛ prefix="/users" - теперь префикс будет только из main.py
+router = APIRouter(tags=["users"])
 
 @router.post("/register", response_model=schemas.UserResponse)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -24,11 +25,22 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         if db_user_email:
             raise HTTPException(status_code=400, detail="Email уже зарегистрирован")
     
+    # Проверяем длину пароля в байтах
+    password_bytes = user.password.encode('utf-8')
+    if len(password_bytes) > 72:
+        raise HTTPException(
+            status_code=400,
+            detail="Пароль слишком длинный (максимум 72 байта)"
+        )
+    
     # Создаем нового пользователя
     try:
         hashed_password = auth.get_password_hash(user.password)
-    except HTTPException as e:
-        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ошибка при создании пароля: {str(e)}"
+        )
     
     db_user = models.User(
         username=user.username,
@@ -48,7 +60,16 @@ async def login_for_access_token(
     user = db.query(models.User).filter(
         models.User.username == form_data.username
     ).first()
-    if not user or not auth.verify_password(form_data.password, user.hashed_password):
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверное имя пользователя или пароль",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Проверяем пароль
+    if not auth.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверное имя пользователя или пароль",
@@ -60,3 +81,27 @@ async def login_for_access_token(
         data={"sub": str(user.id)}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+# Дополнительные эндпоинты для пользователей
+@router.get("/", response_model=list[schemas.UserResponse])
+def get_users(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    users = db.query(models.User).filter(
+        models.User.id != current_user.id
+    ).offset(skip).limit(limit).all()
+    return users
+
+@router.get("/{user_id}", response_model=schemas.UserResponse)
+def get_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    return user

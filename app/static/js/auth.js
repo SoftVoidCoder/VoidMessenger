@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtn.disabled = true;
             
             try {
-                // Отправка запроса на регистрацию
+                // Отправка запроса на регистрацию - ИСПРАВЛЕНО: /api/users/register
                 const response = await fetch('/api/users/register', {
                     method: 'POST',
                     headers: {
@@ -263,13 +263,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     registerForm.style.display = 'none';
                     if (successMessage) successMessage.style.display = 'block';
                     
-                    // АВТОМАТИЧЕСКИЙ ЛОГИН ПОСЛЕ РЕГИСТРАЦИИ
+                    // АВТОМАТИЧЕСКИЙ ЛОГИН ПОСЛЕ РЕГИСТРАЦИИ - ИСПРАВЛЕНО: /api/users/token
                     const loginFormData = new URLSearchParams();
                     loginFormData.append('username', formData.username);
                     loginFormData.append('password', formData.password);
                     
                     try {
-                        const loginResponse = await fetch('/api/token', {
+                        const loginResponse = await fetch('/api/users/token', {
                             method: 'POST',
                             body: loginFormData
                         });
@@ -368,7 +368,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             try {
-                const response = await fetch('/api/token', {
+                // ИСПРАВЛЕНО: /api/users/token вместо /api/token
+                const response = await fetch('/api/users/token', {
                     method: 'POST',
                     body: formData
                 });
