@@ -10,6 +10,10 @@ from dotenv import load_dotenv
 
 from . import models, schemas, crud, auth, dependencies
 from .database import engine, get_db
+import sys
+
+# Добавляем текущую директорию в путь для импортов
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Загружаем переменные окружения
 load_dotenv()
@@ -19,9 +23,23 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Telegram-like Messenger")
 
+# Получаем абсолютный путь к директории проекта
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
+
 # Настройка статических файлов и шаблонов
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-templates = Jinja2Templates(directory="templates")
+static_dir = os.path.join(PROJECT_ROOT, "app", "static")
+templates_dir = os.path.join(PROJECT_ROOT, "templates")
+
+print(f"Static directory: {static_dir}")
+print(f"Templates directory: {templates_dir}")
+
+# Проверяем существование директорий
+print(f"Static dir exists: {os.path.exists(static_dir)}")
+print(f"Templates dir exists: {os.path.exists(templates_dir)}")
+
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+templates = Jinja2Templates(directory=templates_dir)
 
 security = HTTPBearer()
 

@@ -1,14 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}Чаты - Messenger{% endblock %}
+{% block header %}
+<header class="tg-header">
+    <div class="tg-logo">
+        <i class="fab fa-telegram tg-logo-icon"></i>
+        <span class="tg-logo-text">Telegram Web</span>
+    </div>
+    <nav class="tg-nav">
+        <a href="/logout" class="tg-nav-link">
+            <i class="fas fa-sign-out-alt"></i> Выйти
+        </a>
+    </nav>
+</header>
+{% endblock %}
 
 {% block content %}
-<div class="messenger-container">
+<div class="messenger-app">
     <!-- Сайдбар -->
     <div class="sidebar">
         <div class="sidebar-header">
             <div class="user-info">
-                <div class="avatar">
+                <div class="user-avatar">
                     {{ current_user.username[0]|upper }}
                 </div>
                 <div class="user-details">
@@ -16,25 +28,20 @@
                     <p>@{{ current_user.username }}</p>
                 </div>
             </div>
-            <a href="/logout" class="logout-btn" title="Выйти">
-                <i class="fas fa-sign-out-alt"></i>
-            </a>
         </div>
         
         <div class="search-box">
             <i class="fas fa-search"></i>
-            <input type="text" placeholder="Поиск...">
+            <input type="text" placeholder="Поиск чатов и сообщений...">
         </div>
         
         <div class="chats-list">
-            <div class="section-title">
-                <h4>Все пользователи</h4>
-            </div>
+            <div class="chats-title">Контакты</div>
             
             {% for user in users %}
             {% if user.id != current_user.id %}
             <div class="chat-item">
-                <div class="avatar">
+                <div class="chat-avatar">
                     {{ user.username[0]|upper }}
                 </div>
                 <div class="chat-info">
@@ -42,11 +49,8 @@
                     <p>@{{ user.username }}</p>
                 </div>
                 <div class="chat-status">
-                    {% if user.is_active %}
-                    <span class="status-online" title="Онлайн"></span>
-                    {% else %}
-                    <span class="status-offline" title="Офлайн"></span>
-                    {% endif %}
+                    <span class="status-indicator {% if not user.is_active %}offline{% endif %}" 
+                          title="{% if user.is_active %}Онлайн{% else %}Офлайн{% endif %}"></span>
                 </div>
             </div>
             {% endif %}
@@ -54,26 +58,26 @@
         </div>
     </div>
     
-    <!-- Основной контент -->
-    <div class="main-content">
+    <!-- Основной чат -->
+    <div class="chat-area">
         <div class="empty-chat">
-            <div class="empty-icon">
-                <i class="fab fa-telegram fa-4x"></i>
+            <div class="empty-chat-icon">
+                <i class="fab fa-telegram"></i>
             </div>
-            <h2>Telegram-like Messenger</h2>
+            <h2>Telegram Web</h2>
             <p>Выберите чат из списка слева, чтобы начать общение</p>
-            <p class="hint">(Функциональность чатов будет добавлена позже)</p>
+            <p class="hint">(Функциональность сообщений будет добавлена в ближайшее время)</p>
             
             <div class="user-stats">
                 <div class="stat-card">
                     <i class="fas fa-users"></i>
                     <h3>{{ users|length - 1 }}</h3>
-                    <p>Пользователей онлайн</p>
+                    <p>Всего пользователей</p>
                 </div>
                 <div class="stat-card">
-                    <i class="fas fa-user"></i>
-                    <h3>{{ current_user.username }}</h3>
-                    <p>Ваш username</p>
+                    <i class="fas fa-user-circle"></i>
+                    <h3>@{{ current_user.username }}</h3>
+                    <p>Ваш профиль</p>
                 </div>
             </div>
         </div>

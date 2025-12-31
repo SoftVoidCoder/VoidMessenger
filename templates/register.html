@@ -1,71 +1,79 @@
 {% extends "base.html" %}
 
-{% block title %}Регистрация - Messenger{% endblock %}
+{% block header %}
+<header class="tg-header">
+    <div class="tg-logo">
+        <i class="fab fa-telegram tg-logo-icon"></i>
+        <span class="tg-logo-text">Telegram Web</span>
+    </div>
+    <nav class="tg-nav">
+        <a href="/" class="tg-nav-link">На главную</a>
+        <a href="/login" class="tg-nav-link">Вход</a>
+    </nav>
+</header>
+{% endblock %}
 
 {% block content %}
-<div class="auth-form-container">
-    <div class="logo">
-        <i class="fab fa-telegram fa-2x"></i>
-        <h2>Регистрация в Messenger</h2>
-    </div>
-    
-    {% if error %}
-    <div class="alert alert-error">
-        {{ error }}
-    </div>
-    {% endif %}
-    
-    <form method="post" class="auth-form">
-        <div class="form-group">
-            <label for="username">
-                <i class="fas fa-user"></i> Имя пользователя
-            </label>
-            <input type="text" id="username" name="username" required>
+<div class="auth-wrapper">
+    <div class="auth-container">
+        <div class="auth-header">
+            <div class="auth-logo">
+                <i class="fab fa-telegram"></i>
+            </div>
+            <h1 class="auth-title">Создание аккаунта</h1>
+            <p class="auth-subtitle">
+                Заполните форму ниже для регистрации в Telegram Web
+            </p>
         </div>
         
-        <div class="form-group">
-            <label for="email">
-                <i class="fas fa-envelope"></i> Email
-            </label>
-            <input type="email" id="email" name="email" required>
+        {% if error %}
+        <div class="alert alert-error">
+            <i class="fas fa-exclamation-circle"></i> {{ error }}
         </div>
+        {% endif %}
         
-        <div class="form-group">
-            <label for="password">
-                <i class="fas fa-lock"></i> Пароль
-            </label>
-            <input type="password" id="password" name="password" required>
+        <form method="post" class="tg-form">
+            <div class="form-group">
+                <label for="username" class="form-label">Имя пользователя</label>
+                <input type="text" id="username" name="username" class="form-control" placeholder="Придумайте username" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" id="email" name="email" class="form-control" placeholder="Введите ваш email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password" class="form-label">Пароль</label>
+                <input type="password" id="password" name="password" class="form-control" placeholder="Создайте надежный пароль" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="first_name" class="form-label">Имя (необязательно)</label>
+                <input type="text" id="first_name" name="first_name" class="form-control" placeholder="Ваше имя">
+            </div>
+            
+            <div class="form-group">
+                <label for="last_name" class="form-label">Фамилия (необязательно)</label>
+                <input type="text" id="last_name" name="last_name" class="form-control" placeholder="Ваша фамилия">
+            </div>
+            
+            <div class="form-group">
+                <label for="phone" class="form-label">Телефон (необязательно)</label>
+                <input type="tel" id="phone" name="phone" class="form-control" placeholder="+7 (XXX) XXX-XX-XX">
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fas fa-user-plus"></i> Создать аккаунт
+                </button>
+            </div>
+        </form>
+        
+        <div class="auth-links">
+            <p>Уже есть аккаунт? <a href="/login" class="tg-link">Войти</a></p>
+            <p><a href="/" class="tg-link"><i class="fas fa-arrow-left"></i> На главную</a></p>
         </div>
-        
-        <div class="form-group">
-            <label for="phone">
-                <i class="fas fa-phone"></i> Телефон (необязательно)
-            </label>
-            <input type="tel" id="phone" name="phone">
-        </div>
-        
-        <div class="form-group">
-            <label for="first_name">
-                <i class="fas fa-id-card"></i> Имя (необязательно)
-            </label>
-            <input type="text" id="first_name" name="first_name">
-        </div>
-        
-        <div class="form-group">
-            <label for="last_name">
-                <i class="fas fa-id-card"></i> Фамилия (необязательно)
-            </label>
-            <input type="text" id="last_name" name="last_name">
-        </div>
-        
-        <button type="submit" class="btn btn-primary btn-block">
-            <i class="fas fa-user-plus"></i> Зарегистрироваться
-        </button>
-    </form>
-    
-    <div class="auth-links">
-        <p>Уже есть аккаунт? <a href="/login">Войти</a></p>
-        <p><a href="/">На главную</a></p>
     </div>
 </div>
 {% endblock %}
