@@ -16,15 +16,17 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")
 
 def verify_password(plain_password, hashed_password):
+    # Обрезаем пароль до 72 байт для проверки
+    if len(plain_password.encode('utf-8')) > 72:
+        plain_password = plain_password.encode('utf-8')[:72].decode('utf-8', 'ignore')
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password):
-    # Ограничиваем пароль 32 символами
-    if len(password) > 32:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Пароль не должен превышать 32 символа"
-        )
+    # Ограничиваем пароль 32 символами (фронтенд валидация)
+    # И обрезаем до 72 байт для bcrypt
+    if len(password.encode('utf-8')) > 72:
+        # Обрезаем до 72 байт (не символов!)
+        password = password.encode('utf-8')[:72].decode('utf-8', 'ignore')
     return pwd_context.hash(password)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
