@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block title %}Чат - Void Messenger{% endblock %}
+
+{% block content %}
+<div style="display: flex; height: 90vh; font-family: Arial, sans-serif;">
+    
+    <!-- ЛЕВАЯ ПАНЕЛЬ: Список чатов (как в Telegram) -->
+    <div style="width: 30%; border-right: 1px solid #ddd; display: flex; flex-direction: column;">
+        <!-- Заголовок -->
+        <div style="padding: 15px; border-bottom: 1px solid #ddd;">
+            <h3 style="margin: 0;">Чаты</h3>
+            <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
+                Вы: <strong>{{ current_user.username }}</strong>
+            </p>
+        </div>
+        
+        <!-- Список пользователей -->
+        <div id="usersList" style="flex: 1; overflow-y: auto;">
+            {% for user in users %}
+            <div class="chat-item" 
+                 data-user-id="{{ user.id }}"
+                 data-user-name="{{ user.username }}"
+                 style="padding: 12px 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; display: flex; align-items: center;"
+                 onmouseover="this.style.background='#f5f5f5'"
+                 onmouseout="this.style.background='white'">
+                <div style="width: 40px; height: 40px; background: #007bff; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-weight: bold;">
+                    {{ user.username|first|upper }}
+                </div>
+                <div>
+                    <strong>{{ user.username }}</strong>
+                    <div style="font-size: 12px; color: #666;">Нажмите для чата</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- ПРАВАЯ ПАНЕЛЬ: Окно чата -->
+    <div style="width: 70%; display: flex; flex-direction: column;">
+        
+        <!-- Заголовок чата (будет меняться) -->
+        <div id="chatHeader" style="padding: 15px; border-bottom: 1px solid #ddd; display: none;">
+            <div style="display: flex; align-items: center;">
+                <div style="width: 40px; height: 40px; background: #28a745; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-weight: bold;" id="chatAvatar">
+                    U
+                </div>
+                <div>
+                    <h3 id="currentChatUser" style="margin: 0;"></h3>
+                    <div id="chatStatus" style="font-size: 12px; color: #666;">был(а) недавно</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Сообщения (пусто пока не выбран чат) -->
+        <div id="messagesContainer" style="flex: 1; padding: 20px; overflow-y: auto; background: #f8f9fa; display: flex; flex-direction: column;">
+            
+            <!-- Заглушка: выберите чат -->
+            <div id="noChatSelected" style="text-align: center; color: #666; margin: auto;">
+                <div style="font-size: 48px; margin-bottom: 20px;">💬</div>
+                <h3 style="margin-bottom: 10px;">Выберите чат</h3>
+                <p>Выберите пользователя из списка слева, чтобы начать общение</p>
+            </div>
+            
+            <!-- Здесь будут появляться сообщения -->
+            <div id="messages" style="display: none;"></div>
+        </div>
+        
+        <!-- Поле ввода (скрыто пока не выбран чат) -->
+        <div id="messageForm" style="padding: 15px; border-top: 1px solid #ddd; display: none;">
+            <div style="display: flex;">
+                <input type="text" 
+                       id="messageInput" 
+                       placeholder="Введите сообщение..." 
+                       style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; margin-right: 10px; font-size: 14px;">
+                <button id="sendButton" 
+                        style="padding: 12px 24px; background: #007bff; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: bold;">
+                    Отправить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Скрытые данные -->
+<div id="currentUserId" style="display: none;">{{ current_user.id }}</div>
+<div id="currentUserName" style="display: none;">{{ current_user.username }}</div>
+
+<script>
+    // Данные пользователя
+    let currentUserId = parseInt(document.getElementById('currentUserId').textContent);
+    let currentUserName = document.getElementById('currentUserName').textContent;
+    let selectedUserId = null;
+    let selectedUserName = null;
+    let ws = null;
+    
+    // Хранилище сообщений по чатам
+    let chatMessages = {};
+    
+    // Подключение к WebSocket
+    function connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/${currentUserId}`;
+        
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = function() {
+            console.log('✅ WebSocket подключен');
+        };
+        
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            console.log('📩 Получено сообщение:', data);
+            
+            // Определяем ID чата (всегда меньший ID пользователя первым)
+            let chatId = getChatId(data.sender_id, data.receiver_id);
+            
+            // Сохраняем сообщение
+            if (!chatMessages[chatId]) {
+                chatMessages[chatId] = [];
+            }
+            chatMessages[chatId].push(data);
+            
+            // Если это активный чат - показываем сообщение
+            if (selectedUserId === data.sender_id || selectedUserId === data.receiver_id) {
+                displayMessage(data);
+                scrollToBottom();
+            }
+            
+            // Обновляем последнее сообщение в списке чатов
+            updateChatPreview(chatId, data);
+        };
+        
+        ws.onerror = function(error) {
+            console.error('❌ WebSocket ошибка:', error);
+        };
+        
+        ws.onclose = function() {
+            console.log('🔌 WebSocket отключен, переподключение через 3 секунды...');
+            setTimeout(connectWebSocket, 3000);
+        };
+    }
+    
+    // Генерация ID чата (одинаковый для двух пользователей)
+    function getChatId(user1, user2) {
+        return [user1, user2].sort((a, b) => a - b).join('_');
+    }
+    
+    // Выбор пользователя для чата
+    document.querySelectorAll('.chat-item').forEach(item => {
+        item.addEventListener('click', function() {
+            selectedUserId = parseInt(this.dataset.userId);
+            selectedUserName = this.dataset.userName;
+            
+            // Подсветка выбранного чата
+            document.querySelectorAll('.chat-item').forEach(i => {
+                i.style.background = 'white';
+            });
+            this.style.background = '#e3f2fd';
+            
+            // Показываем заголовок чата
+            document.getElementById('chatHeader').style.display = 'block';
+            document.getElementById('currentChatUser').textContent = selectedUserName;
+            document.getElementById('chatAvatar').textContent = selectedUserName.charAt(0).toUpperCase();
+            
+            // Скрываем заглушку, показываем сообщения
+            document.getElementById('noChatSelected').style.display = 'none';
+            document.getElementById('messages').style.display = 'block';
+            document.getElementById('messageForm').style.display = 'block';
+            
+            // Загружаем историю сообщений
+            loadChatHistory(selectedUserId);
+            
+            // Активируем поле ввода
+            document.getElementById('messageInput').disabled = false;
+            document.getElementById('sendButton').disabled = false;
+            document.getElementById('messageInput').focus();
+        });
+    });
+    
+    // Загрузка истории чата
+    async function loadChatHistory(otherUserId) {
+        const chatId = getChatId(currentUserId, otherUserId);
+        
+        // Если уже загружены - показываем
+        if (chatMessages[chatId] && chatMessages[chatId].length > 0) {
+            displayChatHistory(chatMessages[chatId]);
+            return;
+        }
+        
+        // Загружаем с сервера
+        try {
+            const token = localStorage.getItem('token') || getCookie('token');
+            const response = await fetch(`/api/messages/with/${otherUserId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                const messages = await response.json();
+                chatMessages[chatId] = messages;
+                displayChatHistory(messages);
+                scrollToBottom();
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки истории:', error);
+        }
+    }
+    
+    // Отображение истории чата
+    function displayChatHistory(messages) {
+        const messagesDiv = document.getElementById('messages');
+        messagesDiv.innerHTML = '';
+        
+        messages.forEach(msg => {
+            displayMessage(msg);
+        });
+    }
+    
+    // Отображение одного сообщения
+    function displayMessage(msg) {
+        const messagesDiv = document.getElementById('messages');
+        const isOwn = msg.sender_id === currentUserId;
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        messageDiv.style.display = 'flex';
+        messageDiv.style.marginBottom = '10px';
+        messageDiv.style.justifyContent = isOwn ? 'flex-end' : 'flex-start';
+        
+        messageDiv.innerHTML = `
+            <div style="max-width: 70%;">
+                <div style="background: ${isOwn ? '#007bff' : 'white'}; 
+                           color: ${isOwn ? 'white' : 'black'};
+                           padding: 10px 15px;
+                           border-radius: ${isOwn ? '15px 15px 0 15px' : '15px 15px 15px 0'};
+                           border: ${isOwn ? 'none' : '1px solid #ddd'};
+                           word-wrap: break-word;">
+                    ${msg.content}
+                </div>
+                <div style="font-size: 11px; color: #666; text-align: ${isOwn ? 'right' : 'left'}; margin-top: 5px;">
+                    ${new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                </div>
+            </div>
+        `;
+        
+        messagesDiv.appendChild(messageDiv);
+    }
+    
+    // Обновление превью чата в списке
+    function updateChatPreview(chatId, lastMessage) {
+        const [user1, user2] = chatId.split('_').map(Number);
+        const otherUserId = user1 === currentUserId ? user2 : user1;
+        
+        // Находим элемент чата
+        const chatItem = document.querySelector(`.chat-item[data-user-id="${otherUserId}"]`);
+        if (chatItem) {
+            const previewDiv = chatItem.querySelector('.chat-preview') || (() => {
+                const div = document.createElement('div');
+                div.className = 'chat-preview';
+                div.style.fontSize = '12px';
+                div.style.color = '#666';
+                chatItem.querySelector('div').appendChild(div);
+                return div;
+            })();
+            
+            const preview = previewDiv;
+            preview.textContent = lastMessage.content.length > 30 
+                ? lastMessage.content.substring(0, 30) + '...' 
+                : lastMessage.content;
+            preview.style.color = '#333';
+        }
+    }
+    
+    // Отправка сообщения
+    document.getElementById('sendButton').addEventListener('click', sendMessage);
+    document.getElementById('messageInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') sendMessage();
+    });
+    
+    function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const message = input.value.trim();
+        
+        if (!message || !selectedUserId || !ws) return;
+        
+        const messageData = {
+            receiver_id: selectedUserId,
+            content: message
+        };
+        
+        ws.send(JSON.stringify(messageData));
+        
+        // Очищаем поле ввода
+        input.value = '';
+        input.focus();
+    }
+    
+    // Прокрутка вниз
+    function scrollToBottom() {
+        const messagesDiv = document.getElementById('messages');
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+    
+    // Получение cookie (для токена)
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+    
+    // Запуск при загрузке
+    document.addEventListener('DOMContentLoaded', function() {
+        connectWebSocket();
+    });
+</script>
+
+<style>
+    .message {
+        animation: fadeIn 0.3s;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    #messages {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    #messagesContainer {
+        scroll-behavior: smooth;
+    }
+</style>
+{% endblock %}

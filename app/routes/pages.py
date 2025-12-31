@@ -31,7 +31,7 @@ async def chat_page(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Получаем список всех пользователей для чата
+    # Получаем список всех пользователей кроме текущего
     users = db.query(models.User).filter(models.User.id != current_user.id).all()
     
     return templates.TemplateResponse("chat.html", {
