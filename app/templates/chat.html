@@ -11,29 +11,22 @@
         <div style="padding: 15px; border-bottom: 1px solid #ddd;">
             <h3 style="margin: 0;">Чаты</h3>
             <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
-                Вы: <strong id="currentUserDisplay">{{ current_user.username }}</strong>
-                <a href="/logout" style="margin-left: 10px; color: #666; font-size: 12px; text-decoration: none;">(Выйти)</a>
+                Вы: <strong id="currentUserDisplay">Загрузка...</strong>
+                <a href="/logout" 
+                   onclick="localStorage.removeItem('token');" 
+                   style="margin-left: 10px; color: #f00; font-size: 12px; text-decoration: none;">
+                    (Выйти)
+                </a>
             </p>
         </div>
         
         <!-- Список пользователей -->
         <div id="usersList" style="flex: 1; overflow-y: auto;">
-            {% for user in users %}
-            <div class="chat-item" 
-                 data-user-id="{{ user.id }}"
-                 data-user-name="{{ user.username }}"
-                 style="padding: 12px 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; display: flex; align-items: center;"
-                 onmouseover="this.style.background='#f5f5f5'"
-                 onmouseout="if(!this.classList.contains('selected')) this.style.background='white'">
-                <div style="width: 40px; height: 40px; background: #007bff; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-weight: bold;">
-                    {{ user.username|first|upper }}
-                </div>
-                <div style="flex: 1;">
-                    <strong>{{ user.username }}</strong>
-                    <div class="chat-preview" style="font-size: 12px; color: #666;">Начните общение</div>
-                </div>
+            <div style="padding: 40px 20px; text-align: center; color: #666;">
+                <div style="font-size: 48px; margin-bottom: 20px;">👤</div>
+                <h4>Загрузка пользователей...</h4>
+                <p>Пожалуйста, подождите</p>
             </div>
-            {% endfor %}
         </div>
     </div>
     
@@ -48,21 +41,10 @@
                 </div>
                 <div>
                     <h3 id="currentChatUser" style="margin: 0;"></h3>
-                    <div id="chatStatus" style="font-size: 12px; color: #666;">был(а) недавно</div>
+                    <div id="chatStatus" style="font-size: 12px; color: #666;">онлайн</div>
                 </div>
             </div>
         </div>
-        <div style="padding: 15px; border-bottom: 1px solid #ddd;">
-    <h3 style="margin: 0;">Чаты</h3>
-    <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
-        Вы: <strong id="currentUserDisplay">Загрузка...</strong>
-        <a href="/logout" 
-           onclick="localStorage.removeItem('token');" 
-           style="margin-left: 10px; color: #f00; font-size: 12px; text-decoration: none;">
-            (Выйти)
-        </a>
-    </p>
-</div>
         
         <!-- Сообщения -->
         <div id="messagesContainer" style="flex: 1; padding: 20px; overflow-y: auto; background: #f8f9fa; display: flex; flex-direction: column;">
@@ -94,11 +76,6 @@
     </div>
 </div>
 
-<!-- Скрытые данные -->
-<div id="currentUserId" style="display: none;">{{ current_user.id }}</div>
-<div id="currentUserName" style="display: none;">{{ current_user.username }}</div>
-
-<!-- В chat.html замените весь script на: -->
 <script>
     // Telegram-style авторизация
     let currentUserId = null;
@@ -112,7 +89,7 @@
     async function initApp() {
         console.log('🚀 Инициализация чата...');
         
-        // 1. Пробуем получить токен из разных источников
+        // 1. Пробуем получить токен
         let token = localStorage.getItem('token');
         
         // Если нет в localStorage, проверяем URL параметр
@@ -121,14 +98,12 @@
             token = urlParams.get('token');
             if (token) {
                 localStorage.setItem('token', token);
-                // Убираем токен из URL
                 window.history.replaceState({}, document.title, "/chat");
             }
         }
         
         // 2. Если токена нет - редирект на логин
         if (!token) {
-            console.log('❌ Нет токена, редирект на логин');
             window.location.href = '/login';
             return;
         }
@@ -172,24 +147,50 @@
     // Загрузка списка пользователей
     async function loadUsersList(token) {
         try {
-            const response = await fetch('/api/users/', {
+            console.log('👥 Загружаю список пользователей...');
+            
+            // Пробуем без слеша
+            let response = await fetch('/api/users', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
             
+            // Если 404, пробуем со слешем
+            if (response.status === 404 || response.status === 422) {
+                console.log('🔄 Пробую /api/users/ ...');
+                response = await fetch('/api/users/', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+            }
+            
+            console.log('📊 Статус ответа:', response.status);
+            
             if (response.ok) {
                 const users = await response.json();
+                console.log('✅ Получено пользователей:', users.length);
+                console.log('Список:', users.map(u => ({id: u.id, username: u.username})));
                 updateUsersList(users);
+            } else {
+                console.error('❌ Ошибка загрузки пользователей:', response.status, response.statusText);
+                showNoUsersMessage();
             }
         } catch (error) {
-            console.error('Ошибка загрузки пользователей:', error);
+            console.error('❌ Ошибка загрузки пользователей:', error);
+            showNoUsersMessage();
         }
     }
     
     function updateUsersList(users) {
         const usersList = document.getElementById('usersList');
         usersList.innerHTML = '';
+        
+        if (users.length === 0) {
+            showNoUsersMessage();
+            return;
+        }
         
         users.forEach(user => {
             if (user.id === currentUserId) return;
@@ -224,6 +225,21 @@
             
             usersList.appendChild(div);
         });
+    }
+    
+    function showNoUsersMessage() {
+        const usersList = document.getElementById('usersList');
+        usersList.innerHTML = `
+            <div style="padding: 40px 20px; text-align: center; color: #666;">
+                <div style="font-size: 48px; margin-bottom: 20px;">👤</div>
+                <h4>Нет других пользователей</h4>
+                <p>Откройте мессенджер в другом браузере и зарегистрируйтесь</p>
+                <p style="font-size: 12px; margin-top: 20px;">
+                    <a href="/register" style="color: #007bff; text-decoration: none;">Регистрация</a> | 
+                    <a href="/login" style="color: #007bff; text-decoration: none;">Вход</a>
+                </p>
+            </div>
+        `;
     }
     
     // Выбор пользователя
@@ -327,6 +343,9 @@
                 chatMessages[chatId] = messages;
                 displayChatHistory(messages);
                 scrollToBottom();
+            } else {
+                console.error('Ошибка загрузки истории:', response.status);
+                document.getElementById('messages').innerHTML = '<div style="text-align:center;color:#666;padding:20px;">Нет сообщений</div>';
             }
         } catch (error) {
             console.error('Ошибка загрузки истории:', error);
@@ -387,8 +406,18 @@
         const input = document.getElementById('messageInput');
         const message = input.value.trim();
         
-        if (!message || !selectedUserId || !ws || ws.readyState !== 1) {
-            if (!selectedUserId) alert('Выберите собеседника');
+        if (!message) {
+            alert('Введите сообщение');
+            return;
+        }
+        
+        if (!selectedUserId) {
+            alert('Выберите собеседника');
+            return;
+        }
+        
+        if (!ws || ws.readyState !== 1) {
+            alert('Нет соединения. Попробуйте перезагрузить страницу.');
             return;
         }
         
@@ -432,9 +461,10 @@
         if (item) {
             const preview = item.querySelector('.chat-preview');
             if (preview) {
-                preview.textContent = lastMessage.content.length > 30 
-                    ? lastMessage.content.substring(0, 30) + '...' 
-                    : lastMessage.content;
+                const content = escapeHtml(lastMessage.content);
+                preview.textContent = content.length > 30 
+                    ? content.substring(0, 30) + '...' 
+                    : content;
                 preview.style.color = '#333';
             }
         }
@@ -468,7 +498,7 @@
         border-left: 3px solid #007bff !important;
     }
     
-    .loading, .error {
+    .loading {
         text-align: center;
         padding: 20px;
         color: #666;

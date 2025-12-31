@@ -5,7 +5,6 @@ from datetime import timedelta
 from app import models, schemas, auth
 from app.database import get_db
 
-# УБРАЛ prefix="/users" - теперь префикс будет только из main.py
 router = APIRouter(tags=["users"])
 
 @router.post("/register", response_model=schemas.UserResponse)
@@ -82,8 +81,8 @@ async def login_for_access_token(
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-# Дополнительные эндпоинты для пользователей
-@router.get("/", response_model=list[schemas.UserResponse])
+# ИСПРАВЛЕНО: убрал "/users/" в начале
+@router.get("/users", response_model=list[schemas.UserResponse])
 def get_users(
     skip: int = 0,
     limit: int = 100,
@@ -95,7 +94,7 @@ def get_users(
     ).offset(skip).limit(limit).all()
     return users
 
-@router.get("/{user_id}", response_model=schemas.UserResponse)
+@router.get("/users/{user_id}", response_model=schemas.UserResponse)
 def get_user(
     user_id: int,
     db: Session = Depends(get_db),
