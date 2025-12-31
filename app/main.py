@@ -184,12 +184,23 @@ async def chats_page(
     )
 
 # API для получения сообщений
+from fastapi import Cookie
+
 @app.get("/api/messages/{user_id}")
 async def get_messages(
     user_id: int,
-    current_user: models.User = Depends(dependencies.get_current_user),
+    access_token: str = Cookie(None),  # ← Берем токен из cookies
     db: Session = Depends(get_db)
 ):
+    # Проверяем токен
+    user_id_from_token = auth.decode_access_token(access_token)
+    if not user_id_from_token:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    current_user = crud.get_user_by_id(db, user_id_from_token)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="User not found")
+    
     messages = crud.get_messages_between_users(db, current_user.id, user_id)
     
     return [
@@ -202,7 +213,6 @@ async def get_messages(
         }
         for msg in messages
     ]
-
 # API endpoint для получения текущего пользователя
 @app.get("/api/me")
 async def read_current_user(

@@ -252,7 +252,14 @@ function openChat(userId, username) {
 // Загрузить сообщения
 async function loadMessages(userId) {
     try {
-        const response = await fetch(`/api/messages/${userId}`);
+        const response = await fetch(`/api/messages/${userId}`, {
+            credentials: 'include'  // ← ЭТО ВАЖНО!
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to load messages');
+        }
+        
         const messages = await response.json();
         
         const container = document.getElementById('chat-messages');
@@ -276,9 +283,10 @@ async function loadMessages(userId) {
         
     } catch (error) {
         console.error('Error loading messages:', error);
+        const container = document.getElementById('chat-messages');
+        container.innerHTML = '<div style="text-align: center; padding: 40px; color: #707579;">Ошибка загрузки сообщений</div>';
     }
 }
-
 // Добавить сообщение в чат
 function addMessageToChat(content, isSent, timestamp) {
     const container = document.getElementById('chat-messages');
