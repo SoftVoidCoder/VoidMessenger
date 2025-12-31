@@ -819,3 +819,67 @@ body {
 .chat-item {
     cursor: pointer;
 }
+
+/* Telegram Web Layout */
+.messenger-app {
+    display: flex;
+    height: calc(100vh - 60px);
+    width: 100%;
+    background: var(--tg-bg);
+}
+
+/* Сайдбар с чатами слева */
+.sidebar {
+    width: 360px;
+    background: var(--tg-secondary-bg);
+    border-right: 1px solid var(--tg-border);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* Основной чат справа */
+.chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--tg-bg);
+}
+
+/* Сообщения по центру чата */
+#chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 800px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+/* Сообщения не шире 70% */
+#chat-messages > div {
+    max-width: 70%;
+}
+
+/* Исходящие справа */
+#chat-messages > div[style*="justify-content: flex-end"] {
+    align-self: flex-end;
+}
+
+/* Входящие слева */
+#chat-messages > div[style*="justify-content: flex-start"] {
+    align-self: flex-start;
+}
+
+/* Заголовок чата по всей ширине */
+#chat-container > div:first-child {
+    width: 100%;
+}
+
+/* Поле ввода по всей ширине */
+#chat-container > div:last-child {
+    width: 100%;
+}
