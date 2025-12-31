@@ -351,6 +351,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Обработка отправки формы входа
     // Обработка отправки формы входа
+// Обработка отправки формы входа
 if (loginForm) {
     loginForm.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -376,11 +377,16 @@ if (loginForm) {
             if (response.ok) {
                 const tokenData = await response.json();
                 
-                // ВАЖНО: Сохраняем токен в localStorage И в куки
+                // 1. Сохраняем в localStorage (для JavaScript)
                 localStorage.setItem('token', tokenData.access_token);
-                document.cookie = `token=${tokenData.access_token}; path=/; max-age=86400; SameSite=Lax`;
                 
-                // Редирект в чат
+                // 2. Сохраняем в куки (для FastAPI) - ВАЖНО!
+                document.cookie = `token=${tokenData.access_token}; path=/; SameSite=Lax`;
+                
+                // 3. Ждем немного чтобы куки установились
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+                // 4. Редирект в чат
                 window.location.href = '/chat';
             } else {
                 const errorData = await response.json();

@@ -32,18 +32,19 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 async def get_current_user(
-    request: Request,  # Это ДОЛЖНО быть
+    request: Request,
     token: str = Depends(oauth2_scheme), 
     db: Session = Depends(database.get_db)
 ):
     # Пробуем получить токен из куки если не в заголовках
-    if not token:
-        token = request.cookies.get("token")  # Читаем из куки
+    if not token and request:
+        token = request.cookies.get("token")
     
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     
     credentials_exception = HTTPException(

@@ -1,15 +1,15 @@
-from fastapi import FastAPI, Request, Depends, WebSocket, HTTPException, status
+from fastapi import FastAPI, Request, Depends, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 import os
 from dotenv import load_dotenv
 
 from app.database import engine, Base, get_db
-from app import auth  
+from app import auth
 from app.routes import users, messages, pages
-from app.websocket import manager, websocket_endpoint
+from app.websocket import websocket_endpoint
 
 load_dotenv()
 
@@ -23,11 +23,26 @@ app = FastAPI(
     debug=os.getenv("DEBUG", "False").lower() == "true"
 )
 
+# Middleware: добавляем токен из куки в заголовки Authorization
+@app.middleware("http")
+async def add_token_to_headers(request: Request, call_next):
+    # Если нет заголовка Authorization, берем токен из куки
+    if "authorization" not in request.headers:
+        token = request.cookies.get("token")
+        if token:
+            # Создаем новые заголовки с Authorization
+            headers = dict(request.headers)
+            headers["authorization"] = f"Bearer {token}"
+            request._headers = headers
+    
+    response = await call_next(request)
+    return response
+
 # Статические файлы
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-# CORS
+# CORS - ВАЖНО: allow_credentials=True
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
