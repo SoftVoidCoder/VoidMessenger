@@ -4,6 +4,9 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 import os
 
+# Импортируем get_db из database
+from app.database import get_db
+
 router = APIRouter()
 
 # Настройка Jinja2
@@ -48,7 +51,7 @@ async def register_page(request: Request):
 async def chat_page(
     request: Request,
     token: str = Cookie(None),  # Получаем токен из куки
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db)  # Теперь get_db определен
 ):
     print(f"🔑 Токен из куки: {token[:20] + '...' if token else 'None'}")
     
