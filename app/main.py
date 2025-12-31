@@ -1,7 +1,7 @@
-from fastapi import FastAPI, Request, Depends, WebSocket
+from fastapi import FastAPI, Request, Depends, WebSocket, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from sqlalchemy.orm import Session
 import os
 from dotenv import load_dotenv
@@ -22,22 +22,6 @@ app = FastAPI(
     description="Beautiful messenger with WebSockets",
     debug=os.getenv("DEBUG", "False").lower() == "true"
 )
-
-# Middleware для получения токена из куки
-@app.middleware("http")
-async def get_token_from_cookie(request: Request, call_next):
-    # Проверяем куки на наличие токена
-    token = request.cookies.get("token")
-    
-    # Если токен в куках, добавляем его в заголовки Authorization
-    if token and "authorization" not in request.headers:
-        # Клонируем заголовки и добавляем Authorization
-        headers = dict(request.headers)
-        headers["authorization"] = f"Bearer {token}"
-        request._headers = headers
-    
-    response = await call_next(request)
-    return response
 
 # Статические файлы
 static_dir = os.path.join(os.path.dirname(__file__), "static")
