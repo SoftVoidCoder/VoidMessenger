@@ -16,7 +16,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="messenger-app">
+<div class="messenger-app" id="messenger-app" data-user-id="{{ current_user.id }}">
     <!-- Сайдбар -->
     <div class="sidebar">
         <div class="sidebar-header">
@@ -26,29 +26,32 @@
                 </div>
                 <div class="user-details">
                     <h3>{{ current_user.username }}</h3>
-                    <p>Online</p>
+                    <p id="connection-status">🟢 Online</p>
                 </div>
             </div>
         </div>
         
         <div class="chats-list">
-    <div class="chats-title">Все пользователи</div>
-    
-    {% for user in users %}
-    {% if user.id != current_user.id %}
-    <div class="chat-item" 
-         onclick="openChat('{{ user.id }}', '{{ user.username }}')">
-        <div class="chat-avatar">
-            {{ user.username[0]|upper }}
-        </div>
-        <div class="chat-info">
-            <h4>{{ user.username }}</h4>
-            <p>Написать сообщение</p>
+            <div class="chats-title">Все пользователи</div>
+            
+            {% for user in users %}
+            {% if user.id != current_user.id %}
+            <div class="chat-item" 
+                 data-user-id="{{ user.id }}"
+                 data-username="{{ user.username }}">
+                <div class="chat-avatar">
+                    {{ user.username[0]|upper }}
+                </div>
+                <div class="chat-info">
+                    <h4>{{ user.username }}</h4>
+                    <p>Написать сообщение</p>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
         </div>
     </div>
-    {% endif %}
-    {% endfor %}
-</div>
+    
     <!-- Основной чат -->
     <div class="chat-area">
         <div class="empty-chat" id="empty-chat">
@@ -59,144 +62,168 @@
             <p>Выберите пользователя чтобы начать общение</p>
         </div>
         
-        <div id="chat-container" style="display: none;">
+        <div id="chat-container" style="display: none; height: 100%;">
             <!-- Чат будет здесь -->
         </div>
     </div>
 </div>
 
 <script>
-// Глобальные переменные
 let currentChatUser = null;
+let ws = null;
+const currentUserId = document.getElementById('messenger-app').getAttribute('data-user-id');
 
-// Функция открытия чата
-function openChat(userId, username) {
-    console.log('Opening chat with:', userId, username);
-    
-    // Убрать активный класс у всех чатов
-    const allChatItems = document.querySelectorAll('.chat-item');
-    allChatItems.forEach(item => {
-        item.classList.remove('active');
+// Инициализация
+document.addEventListener('DOMContentLoaded', function() {
+    initChats();
+    connectWebSocket();
+});
+
+// Инициализация чатов
+function initChats() {
+    const chatItems = document.querySelectorAll('.chat-item');
+    chatItems.forEach(item => {
+        item.addEventListener('click', async function() {
+            const userId = parseInt(this.getAttribute('data-user-id'));
+            const username = this.getAttribute('data-username');
+            
+            // Обновляем активный элемент
+            chatItems.forEach(i => i.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Открываем чат
+            await openChat(userId, username);
+        });
     });
-    
-    // Добавить активный класс текущему чату
-    event.currentTarget.classList.add('active');
-    
-    currentChatUser = {
-        id: userId,
-        username: username
-    };
-    
-    // Показать чат
-    showChatInterface();
 }
 
-// Показать интерфейс чата
-function showChatInterface() {
-    // Скрыть пустой экран
-    document.getElementById('empty-chat').style.display = 'none';
+// Подключение WebSocket
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/${currentUserId}`;
+    
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = function() {
+        console.log('✅ WebSocket connected');
+        document.getElementById('connection-status').textContent = '🟢 Online';
+    };
+    
+    ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'new_message') {
+            // Если сообщение для текущего открытого чата
+            if (currentChatUser && data.sender_id == currentChatUser.id) {
+                addMessageToChat(data.content, false, data.timestamp);
+            }
+        }
+    };
+    
+    ws.onclose = function() {
+        console.log('❌ WebSocket disconnected');
+        document.getElementById('connection-status').textContent = '🔴 Offline';
+        
+        // Переподключение через 3 секунды
+        setTimeout(connectWebSocket, 3000);
+    };
+    
+    ws.onerror = function(error) {
+        console.error('WebSocket error:', error);
+    };
+}
+
+// Открыть чат с пользователем
+async function openChat(userId, username) {
+    currentChatUser = { 
+        id: userId, 
+        username: username 
+    };
     
     // Показать контейнер чата
+    document.getElementById('empty-chat').style.display = 'none';
     const chatContainer = document.getElementById('chat-container');
-    chatContainer.style.display = 'block';
+    chatContainer.style.display = 'flex';
+    chatContainer.style.flexDirection = 'column';
     chatContainer.style.height = '100%';
     
-    // Создать HTML для чата
+    // Создать интерфейс чата
     chatContainer.innerHTML = `
-        <div style="display: flex; flex-direction: column; height: 100%;">
-            <!-- Заголовок чата -->
-            <div style="
-                height: 60px;
-                border-bottom: 1px solid #e5e5e5;
-                display: flex;
-                align-items: center;
-                padding: 0 20px;
-                background: white;
-            ">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="
-                        width: 40px;
-                        height: 40px;
-                        background: linear-gradient(135deg, #3390ec, #4dabf7);
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        color: white;
-                        font-weight: 600;
-                        font-size: 16px;
-                    ">
-                        ${currentChatUser.username[0].toUpperCase()}
-                    </div>
-                    <div>
-                        <h3 style="margin: 0; font-size: 16px; font-weight: 600;">${currentChatUser.username}</h3>
-                        <p style="margin: 0; color: #707579; font-size: 13px;">Online</p>
-                    </div>
+        <div style="
+            height: 60px;
+            border-bottom: 1px solid var(--tg-border);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            background: var(--tg-bg);
+            flex-shrink: 0;
+        ">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="
+                    width: 40px;
+                    height: 40px;
+                    background: linear-gradient(135deg, var(--tg-blue), #4dabf7);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: 600;
+                    font-size: 16px;
+                ">
+                    ${username[0].toUpperCase()}
+                </div>
+                <div>
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 600;">${username}</h3>
+                    <p style="margin: 0; color: var(--tg-text-secondary); font-size: 13px;">Online</p>
                 </div>
             </div>
-            
-            <!-- Сообщения -->
-            <div id="chat-messages" style="
-                flex: 1;
-                overflow-y: auto;
-                padding: 20px;
-                background: #f8f9fa;
-            ">
-                <!-- Сообщения будут здесь -->
-                <div style="text-align: center; padding: 40px; color: #707579;">
-                    <p>Нет сообщений</p>
-                    <p style="font-size: 12px;">Начните общение первым!</p>
-                </div>
-            </div>
-            
-            <!-- Поле ввода -->
-            <div style="
-                border-top: 1px solid #e5e5e5;
-                padding: 16px 20px;
-                background: white;
-            ">
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <button onclick="showAttachmentOptions()" style="
-                        width: 40px;
-                        height: 40px;
-                        border-radius: 50%;
-                        border: 1px solid #e5e5e5;
-                        background: white;
-                        color: #000;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                    ">
-                        <i class="fas fa-plus"></i>
-                    </button>
-                    <input type="text" 
-                           id="message-input" 
-                           placeholder="Введите сообщение..." 
-                           style="
-                               flex: 1;
-                               height: 40px;
-                               padding: 0 16px;
-                               border: 1px solid #e5e5e5;
-                               border-radius: 20px;
-                               font-size: 14px;
-                               outline: none;
-                           ">
-                    <button onclick="sendMessage()" style="
-                        width: 40px;
-                        height: 40px;
-                        border-radius: 50%;
-                        background: #3390ec;
-                        color: white;
-                        border: none;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                    ">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
+        </div>
+        
+        <div id="chat-messages" style="
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        ">
+            <!-- Сообщения будут загружены -->
+        </div>
+        
+        <div style="
+            border-top: 1px solid var(--tg-border);
+            padding: 16px 20px;
+            background: var(--tg-bg);
+            flex-shrink: 0;
+        ">
+            <div style="display: flex; gap: 10px;">
+                <input type="text" 
+                       id="message-input" 
+                       placeholder="Введите сообщение..." 
+                       style="
+                           flex: 1;
+                           height: 40px;
+                           padding: 0 16px;
+                           border: 1px solid var(--tg-border);
+                           border-radius: 20px;
+                           font-size: 14px;
+                           outline: none;
+                       ">
+                <button onclick="sendMessage()" style="
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    background: var(--tg-blue);
+                    color: white;
+                    border: none;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
             </div>
         </div>
     `;
@@ -209,110 +236,102 @@ function showChatInterface() {
         }
     });
     
+    // Загрузить историю сообщений
+    await loadMessages(userId);
+    
     // Фокус на поле ввода
     setTimeout(() => {
         input.focus();
     }, 100);
 }
 
-// Отправка сообщения
-function sendMessage() {
-    const input = document.getElementById('message-input');
-    const message = input.value.trim();
-    
-    if (!message) {
-        alert('Введите сообщение');
-        return;
+// Загрузить историю сообщений
+async function loadMessages(userId) {
+    try {
+        const response = await fetch(`/api/messages/${userId}`);
+        const messages = await response.json();
+        
+        const container = document.getElementById('chat-messages');
+        container.innerHTML = '';
+        
+        if (messages.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--tg-text-secondary);">Нет сообщений. Начните общение!</div>';
+            return;
+        }
+        
+        messages.forEach(msg => {
+            addMessageToChat(msg.content, msg.is_sent, msg.created_at);
+        });
+        
+        // Прокрутить вниз
+        setTimeout(() => {
+            container.scrollTop = container.scrollHeight;
+        }, 100);
+        
+    } catch (error) {
+        console.error('Error loading messages:', error);
     }
-    
-    if (!currentChatUser) {
-        alert('Выберите пользователя');
-        return;
-    }
-    
-    // Добавить сообщение в чат
-    addMessageToChat(message, true);
-    
-    // Очистить поле ввода
-    input.value = '';
-    input.focus();
-    
-    // Симуляция ответа через 1-2 секунды
-    setTimeout(() => {
-        const responses = [
-            'Привет!',
-            'Как дела?',
-            'Хорошо!',
-            'Спасибо за сообщение!',
-            'Давай общаться!'
-        ];
-        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-        addMessageToChat(randomResponse, false);
-    }, 1000);
 }
 
 // Добавить сообщение в чат
-function addMessageToChat(content, isSent) {
+function addMessageToChat(content, isSent, timestamp) {
     const container = document.getElementById('chat-messages');
     if (!container) return;
     
-    // Если показывается "Нет сообщений", убираем
+    // Убрать "Нет сообщений"
     if (container.innerHTML.includes('Нет сообщений')) {
         container.innerHTML = '';
     }
     
-    const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const time = new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     
     const messageDiv = document.createElement('div');
     messageDiv.style.cssText = `
-        margin-bottom: 16px;
         display: flex;
         ${isSent ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}
+        animation: fadeIn 0.3s ease;
     `;
     
     if (isSent) {
-        // Исходящее сообщение (справа)
         messageDiv.innerHTML = `
-            <div style="max-width: 70%;">
+            <div>
                 <div style="
-                    background: #3390ec;
+                    background: var(--tg-blue);
                     color: white;
-                    padding: 12px 16px;
+                    padding: 10px 15px;
                     border-radius: 18px 18px 4px 18px;
+                    max-width: 300px;
                     word-wrap: break-word;
                 ">
                     ${content}
                 </div>
                 <div style="
                     font-size: 12px;
-                    color: #707579;
+                    color: var(--tg-text-secondary);
                     margin-top: 4px;
                     text-align: right;
-                    padding-right: 8px;
                 ">
-                    ${time} <i class="fas fa-check" style="margin-left: 4px;"></i>
+                    ${time}
                 </div>
             </div>
         `;
     } else {
-        // Входящее сообщение (слева)
         messageDiv.innerHTML = `
-            <div style="max-width: 70%;">
+            <div>
                 <div style="
-                    background: white;
-                    color: #000;
-                    padding: 12px 16px;
+                    background: var(--tg-secondary-bg);
+                    color: var(--tg-text-primary);
+                    padding: 10px 15px;
                     border-radius: 18px 18px 18px 4px;
-                    border: 1px solid #e5e5e5;
+                    max-width: 300px;
                     word-wrap: break-word;
                 ">
                     ${content}
                 </div>
                 <div style="
                     font-size: 12px;
-                    color: #707579;
+                    color: var(--tg-text-secondary);
                     margin-top: 4px;
-                    padding-left: 8px;
                 ">
                     ${time}
                 </div>
@@ -328,9 +347,43 @@ function addMessageToChat(content, isSent) {
     }, 100);
 }
 
-// Показать опции вложений
-function showAttachmentOptions() {
-    alert('Добавление файлов будет доступно позже');
+// Отправить сообщение
+function sendMessage() {
+    const input = document.getElementById('message-input');
+    const message = input.value.trim();
+    
+    if (!message || !currentChatUser) {
+        return;
+    }
+    
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        alert('Нет соединения. Попробуйте обновить страницу.');
+        return;
+    }
+    
+    // Отправить через WebSocket
+    ws.send(JSON.stringify({
+        type: 'message',
+        content: message,
+        receiver_id: currentChatUser.id
+    }));
+    
+    // Добавить сообщение в чат сразу (оптимистично)
+    addMessageToChat(message, true, new Date().toISOString());
+    
+    // Очистить поле ввода
+    input.value = '';
+    input.focus();
 }
+
+// Добавить стиль для анимации
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+`;
+document.head.appendChild(style);
 </script>
 {% endblock %}
