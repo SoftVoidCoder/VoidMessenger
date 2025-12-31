@@ -247,8 +247,8 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtn.disabled = true;
             
             try {
-                // Отправка запроса на регистрацию - ИСПРАВЛЕНО: /api/users/register
-                const response = await fetch('/api/users/register', {
+                // ИСПРАВЛЕНО: правильный путь /api/register
+                const response = await fetch('/api/register', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -263,13 +263,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     registerForm.style.display = 'none';
                     if (successMessage) successMessage.style.display = 'block';
                     
-                    // АВТОМАТИЧЕСКИЙ ЛОГИН ПОСЛЕ РЕГИСТРАЦИИ - ИСПРАВЛЕНО: /api/users/token
+                    // АВТОМАТИЧЕСКИЙ ЛОГИН ПОСЛЕ РЕГИСТРАЦИИ
                     const loginFormData = new URLSearchParams();
                     loginFormData.append('username', formData.username);
                     loginFormData.append('password', formData.password);
                     
                     try {
-                        const loginResponse = await fetch('/api/users/token', {
+                        // ИСПРАВЛЕНО: правильный путь /api/token
+                        const loginResponse = await fetch('/api/token', {
                             method: 'POST',
                             body: loginFormData
                         });
@@ -348,62 +349,59 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Обработка отправки формы входа
-    // ВОТ ИСПРАВЛЕННЫЙ КОД ДЛЯ ЛОГИНА:
-if (loginForm) {
-    loginForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        
-        const formData = new URLSearchParams();
-        formData.append('username', username);
-        formData.append('password', password);
-        
-        const submitBtn = loginForm.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
-        submitBtn.disabled = true;
-        if (loginError) {
-            loginError.style.display = 'none';
-        }
-        
-        try {
-            const response = await fetch('/api/users/token', {
-                method: 'POST',
-                body: formData
-            });
+    if (loginForm) {
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
             
-            if (response.ok) {
-                const tokenData = await response.json();
-                // Сохраняем токен в localStorage
-                localStorage.setItem('token', tokenData.access_token);
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            const formData = new URLSearchParams();
+            formData.append('username', username);
+            formData.append('password', password);
+            
+            const submitBtn = loginForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
+            submitBtn.disabled = true;
+            if (loginError) {
+                loginError.style.display = 'none';
+            }
+            
+            try {
+                // ИСПРАВЛЕНО: правильный путь /api/token
+                const response = await fetch('/api/token', {
+                    method: 'POST',
+                    body: formData
+                });
                 
-                // СОХРАНЯЕМ ТОКЕН В КУКИ ДЛЯ FASTAPI
-                document.cookie = `token=${tokenData.access_token}; path=/; max-age=86400; SameSite=Lax`;
-                
-                // Редирект в чат
-                window.location.href = '/chat';
-            } else {
-                const errorData = await response.json();
+                if (response.ok) {
+                    const tokenData = await response.json();
+                    // Сохраняем токен в localStorage
+                    localStorage.setItem('token', tokenData.access_token);
+                    
+                    // Редирект в чат
+                    window.location.href = '/chat';
+                } else {
+                    const errorData = await response.json();
+                    if (loginError) {
+                        loginError.textContent = errorData.detail || 'Ошибка входа';
+                        loginError.style.display = 'block';
+                    }
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
                 if (loginError) {
-                    loginError.textContent = errorData.detail || 'Ошибка входа';
+                    loginError.textContent = 'Ошибка соединения с сервером';
                     loginError.style.display = 'block';
                 }
                 submitBtn.innerHTML = originalText;
                 submitBtn.disabled = false;
             }
-        } catch (error) {
-            console.error('Ошибка:', error);
-            if (loginError) {
-                loginError.textContent = 'Ошибка соединения с сервером';
-                loginError.style.display = 'block';
-            }
-            submitBtn.innerHTML = originalText;
-            submitBtn.disabled = false;
-        }
-    });
-}
+        });
+    }
     
     // Инициализация при загрузке
     if (passwordLength) {
