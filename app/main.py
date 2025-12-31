@@ -7,9 +7,9 @@ import os
 from dotenv import load_dotenv
 
 from app.database import engine, Base, get_db
-from app import auth
+from app import auth  
 from app.routes import users, messages, pages
-from app.websocket import websocket_endpoint
+from app.websocket import manager, websocket_endpoint
 
 load_dotenv()
 
@@ -23,10 +23,25 @@ app = FastAPI(
     debug=os.getenv("DEBUG", "False").lower() == "true"
 )
 
+# Middleware для получения токена из куки
+@app.middleware("http")
+async def get_token_from_cookie(request: Request, call_next):
+    # Проверяем куки на наличие токена
+    token = request.cookies.get("token")
+    
+    # Если токен в куках, добавляем его в заголовки Authorization
+    if token and "authorization" not in request.headers:
+        # Клонируем заголовки и добавляем Authorization
+        headers = dict(request.headers)
+        headers["authorization"] = f"Bearer {token}"
+        request._headers = headers
+    
+    response = await call_next(request)
+    return response
+
 # Статические файлы
 static_dir = os.path.join(os.path.dirname(__file__), "static")
-if os.path.exists(static_dir):
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # CORS
 app.add_middleware(
@@ -44,7 +59,7 @@ app.include_router(messages.router, prefix="/api")
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to Void Messenger API"}
+    return {"message": "Welcome to Void Messenger"}
 
 @app.get("/api/health")
 def health_check():

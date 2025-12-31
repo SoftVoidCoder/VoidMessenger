@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from app.auth import get_current_user
 from app.database import get_db
@@ -39,3 +39,9 @@ async def chat_page(
         "current_user": current_user,
         "users": users
     })
+
+@router.get("/logout")
+async def logout():
+    response = RedirectResponse(url="/login")
+    response.delete_cookie("token")
+    return response
