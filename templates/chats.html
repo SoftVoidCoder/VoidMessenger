@@ -16,7 +16,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="messenger-app fade-in">
+<div class="messenger-app">
     <!-- Сайдбар -->
     <div class="sidebar">
         <div class="sidebar-header">
@@ -25,15 +25,10 @@
                     {{ current_user.username[0]|upper }}
                 </div>
                 <div class="user-details">
-                    <h3>{{ current_user.get_full_name() }}</h3>
-                    <p>@{{ current_user.username }}</p>
+                    <h3>{{ current_user.username }}</h3>
+                    <p>Online</p>
                 </div>
             </div>
-        </div>
-        
-        <div class="search-box">
-            <i class="fas fa-search"></i>
-            <input type="text" placeholder="Поиск" id="chat-search">
         </div>
         
         <div class="chats-list">
@@ -48,8 +43,8 @@
                     {{ user.username[0]|upper }}
                 </div>
                 <div class="chat-info">
-                    <h4>{{ user.get_full_name() }}</h4>
-                    <p>@{{ user.username }}</p>
+                    <h4>{{ user.username }}</h4>
+                    <p>Написать сообщение</p>
                 </div>
             </div>
             {% endif %}
@@ -64,18 +59,10 @@
                 <i class="fab fa-telegram"></i>
             </div>
             <h2>Telegram Web</h2>
-            <p>Выберите чат из списка слева, чтобы начать общение</p>
-            
-            <div class="user-stats">
-                <div class="stat-card">
-                    <i class="fas fa-users"></i>
-                    <h3>{{ users|length - 1 }}</h3>
-                    <p>Доступных контактов</p>
-                </div>
-            </div>
+            <p>Выберите пользователя чтобы начать общение</p>
         </div>
         
-        <div id="chat-container" style="display: none;">
+        <div id="chat-container" style="display: none; height: 100%;">
             <!-- Чат будет здесь -->
         </div>
     </div>
@@ -84,251 +71,33 @@
 <script>
 let currentChatUser = null;
 let ws = null;
-const accessToken = "{{ access_token }}";
+const currentUserId = {{ current_user_id }};
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Chat page loaded');
     initChats();
+    connectWebSocket();
 });
 
 function initChats() {
     const chatItems = document.querySelectorAll('.chat-item');
     chatItems.forEach(item => {
-        item.addEventListener('click', function() {
-            const userId = this.getAttribute('data-user-id');
+        item.addEventListener('click', async function() {
+            const userId = parseInt(this.getAttribute('data-user-id'));
             const username = this.getAttribute('data-username');
-            const name = this.querySelector('h4').textContent;
             
             // Обновляем активный элемент
             chatItems.forEach(i => i.classList.remove('active'));
             this.classList.add('active');
             
             // Открываем чат
-            openChat(parseInt(userId), username, name);
+            await openChat(userId, username);
         });
     });
 }
 
-function openChat(userId, username, name) {
-    console.log('Opening chat with user:', userId, username);
-    
-    currentChatUser = { 
-        id: userId, 
-        username: username, 
-        name: name 
-    };
-    
-    // Показать контейнер чата
-    document.getElementById('empty-chat').style.display = 'none';
-    const chatContainer = document.getElementById('chat-container');
-    chatContainer.style.display = 'block';
-    chatContainer.style.height = '100%';
-    
-    // Создать интерфейс чата
-    chatContainer.innerHTML = `
-        <div style="display: flex; flex-direction: column; height: 100%;">
-            <!-- Заголовок чата -->
-            <div style="
-                height: 60px;
-                border-bottom: 1px solid var(--tg-border);
-                display: flex;
-                align-items: center;
-                padding: 0 20px;
-                background: var(--tg-bg);
-            ">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="
-                        width: 40px;
-                        height: 40px;
-                        background: linear-gradient(135deg, var(--tg-blue), #4dabf7);
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        color: white;
-                        font-weight: 600;
-                        font-size: 16px;
-                    ">
-                        ${name[0].toUpperCase()}
-                    </div>
-                    <div>
-                        <h3 style="margin: 0; font-size: 16px; font-weight: 600;">${name}</h3>
-                        <p style="margin: 0; color: var(--tg-text-secondary); font-size: 13px;">@${username}</p>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Сообщения -->
-            <div id="chat-messages" style="
-                flex: 1;
-                overflow-y: auto;
-                padding: 20px;
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-            ">
-                <!-- Сообщения будут здесь -->
-                <div style="text-align: center; padding: 20px; color: var(--tg-text-secondary);">
-                    Загрузка сообщений...
-                </div>
-            </div>
-            
-            <!-- Поле ввода -->
-            <div style="
-                border-top: 1px solid var(--tg-border);
-                padding: 16px 20px;
-                background: var(--tg-bg);
-            ">
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" 
-                           id="message-input" 
-                           placeholder="Введите сообщение..." 
-                           style="
-                               flex: 1;
-                               height: 40px;
-                               padding: 0 16px;
-                               border: 1px solid var(--tg-border);
-                               border-radius: 20px;
-                               font-size: 14px;
-                               outline: none;
-                           ">
-                    <button onclick="sendMessage()" style="
-                        width: 40px;
-                        height: 40px;
-                        border-radius: 50%;
-                        background: var(--tg-blue);
-                        color: white;
-                        border: none;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                    ">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Загрузить сообщения
-    loadMessages(userId);
-    
-    // Настроить поле ввода
-    const input = document.getElementById('message-input');
-    input.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            sendMessage();
-        }
-    });
-    
-    // Подключить WebSocket если еще не подключен
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-        connectWebSocket();
-    }
-}
-
-async function loadMessages(userId) {
-    try {
-        const response = await fetch(`/api/messages/${userId}`);
-        
-        if (response.ok) {
-            const messages = await response.json();
-            displayMessages(messages);
-        }
-    } catch (error) {
-        console.error('Error loading messages:', error);
-        const container = document.getElementById('chat-messages');
-        container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--tg-text-secondary);">Ошибка загрузки сообщений</div>';
-    }
-}
-
-function displayMessages(messages) {
-    const container = document.getElementById('chat-messages');
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    if (messages.length === 0) {
-        container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--tg-text-secondary);">Нет сообщений. Начните общение!</div>';
-        return;
-    }
-    
-    messages.forEach(msg => {
-        const isOutgoing = msg.sender_id === currentChatUser.id;
-        const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        
-        const messageDiv = document.createElement('div');
-        messageDiv.style.cssText = `
-            display: flex;
-            gap: 10px;
-            align-self: ${isOutgoing ? 'flex-end' : 'flex-start'};
-            max-width: 70%;
-            margin-left: ${isOutgoing ? 'auto' : '0'};
-        `;
-        
-        if (isOutgoing) {
-            messageDiv.innerHTML = `
-                <div>
-                    <div style="
-                        background: var(--tg-blue);
-                        padding: 10px 14px;
-                        border-radius: 12px 12px 4px 12px;
-                        color: white;
-                    ">
-                        ${msg.content}
-                    </div>
-                    <div style="
-                        font-size: 11px;
-                        color: var(--tg-text-secondary);
-                        margin-top: 4px;
-                        text-align: right;
-                    ">
-                        ${time}
-                    </div>
-                </div>
-            `;
-        } else {
-            messageDiv.innerHTML = `
-                <div>
-                    <div style="
-                        background: var(--tg-secondary-bg);
-                        padding: 10px 14px;
-                        border-radius: 12px 12px 12px 4px;
-                        color: var(--tg-text-primary);
-                    ">
-                        ${msg.content}
-                    </div>
-                    <div style="
-                        font-size: 11px;
-                        color: var(--tg-text-secondary);
-                        margin-top: 4px;
-                    ">
-                        ${time}
-                    </div>
-                </div>
-            `;
-        }
-        
-        container.appendChild(messageDiv);
-    });
-    
-    // Прокрутить вниз
-    setTimeout(() => {
-        container.scrollTop = container.scrollHeight;
-    }, 100);
-}
-
 function connectWebSocket() {
-    if (!accessToken) {
-        console.error('No access token');
-        return;
-    }
-    
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/${accessToken}`;
-    
-    console.log('Connecting to WebSocket:', wsUrl);
+    const wsUrl = `${protocol}//${window.location.host}/ws/${currentUserId}`;
     
     ws = new WebSocket(wsUrl);
     
@@ -337,111 +106,171 @@ function connectWebSocket() {
     };
     
     ws.onmessage = function(event) {
-        console.log('WebSocket message:', event.data);
         const data = JSON.parse(event.data);
         
-        if (data.type === 'new_message' && currentChatUser) {
-            // Проверить, относится ли сообщение к текущему чату
-            if (data.message.sender_id === currentChatUser.id || 
-                data.message.receiver_id === currentChatUser.id) {
-                // Добавить сообщение в чат
-                addNewMessage(data.message);
+        if (data.type === 'new_message') {
+            if (currentChatUser && data.sender_id === currentChatUser.id) {
+                addMessageToChat(data.content, false, data.created_at);
             }
         }
     };
-    
-    ws.onerror = function(error) {
-        console.error('WebSocket error:', error);
-    };
 }
 
-function sendMessage() {
-    const input = document.getElementById('message-input');
-    const message = input.value.trim();
+async function openChat(userId, username) {
+    currentChatUser = { id: userId, username: username };
     
-    if (!message) {
-        alert('Введите сообщение');
-        return;
-    }
+    // Показать контейнер чата
+    document.getElementById('empty-chat').style.display = 'none';
+    const chatContainer = document.getElementById('chat-container');
+    chatContainer.style.display = 'flex';
+    chatContainer.style.flexDirection = 'column';
+    chatContainer.style.height = '100%';
     
-    if (!currentChatUser) {
-        alert('Выберите пользователя');
-        return;
-    }
-    
-    // Отправить через REST API (простейший вариант)
-    fetch('/api/messages', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify({
-            content: message,
-            receiver_id: currentChatUser.id
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('Message sent:', data);
+    // Создать интерфейс чата
+    chatContainer.innerHTML = `
+        <div style="
+            height: 60px;
+            border-bottom: 1px solid var(--tg-border);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            background: var(--tg-bg);
+            flex-shrink: 0;
+        ">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="
+                    width: 40px;
+                    height: 40px;
+                    background: linear-gradient(135deg, var(--tg-blue), #4dabf7);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: 600;
+                    font-size: 16px;
+                ">
+                    ${username[0].toUpperCase()}
+                </div>
+                <div>
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 600;">${username}</h3>
+                    <p style="margin: 0; color: var(--tg-text-secondary); font-size: 13px;">Online</p>
+                </div>
+            </div>
+        </div>
         
-        // Добавить сообщение в чат
-        addNewMessage({
-            id: data.id,
-            sender_id: data.sender_id,
-            receiver_id: data.receiver_id,
-            content: data.content,
-            is_read: data.is_read,
-            created_at: data.created_at,
-            sender_username: 'Вы',
-            receiver_username: currentChatUser.username
+        <div id="chat-messages" style="
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        ">
+            <!-- Сообщения будут здесь -->
+        </div>
+        
+        <div style="
+            border-top: 1px solid var(--tg-border);
+            padding: 16px 20px;
+            background: var(--tg-bg);
+            flex-shrink: 0;
+        ">
+            <div style="display: flex; gap: 10px;">
+                <input type="text" 
+                       id="message-input" 
+                       placeholder="Введите сообщение..." 
+                       style="
+                           flex: 1;
+                           height: 40px;
+                           padding: 0 16px;
+                           border: 1px solid var(--tg-border);
+                           border-radius: 20px;
+                           font-size: 14px;
+                           outline: none;
+                       "
+                       onkeypress="if(event.key === 'Enter') sendMessage()">
+                <button onclick="sendMessage()" style="
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    background: var(--tg-blue);
+                    color: white;
+                    border: none;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Загрузить сообщения
+    await loadMessages(userId);
+    
+    // Фокус на поле ввода
+    setTimeout(() => {
+        document.getElementById('message-input').focus();
+    }, 100);
+}
+
+async function loadMessages(userId) {
+    try {
+        const response = await fetch(`/api/messages/${userId}`);
+        const messages = await response.json();
+        
+        const container = document.getElementById('chat-messages');
+        container.innerHTML = '';
+        
+        if (messages.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--tg-text-secondary);">Нет сообщений</div>';
+            return;
+        }
+        
+        messages.forEach(msg => {
+            addMessageToChat(msg.content, msg.is_sent, msg.created_at);
         });
         
-        // Очистить поле ввода
-        input.value = '';
-        input.focus();
-    })
-    .catch(error => {
-        console.error('Error sending message:', error);
-        alert('Ошибка отправки сообщения');
-    });
+        // Прокрутить вниз
+        setTimeout(() => {
+            container.scrollTop = container.scrollHeight;
+        }, 100);
+        
+    } catch (error) {
+        console.error('Error loading messages:', error);
+    }
 }
 
-function addNewMessage(msg) {
+function addMessageToChat(content, isSent, timestamp) {
     const container = document.getElementById('chat-messages');
     if (!container) return;
     
-    // Убрать "нет сообщений"
-    if (container.innerHTML.includes('Нет сообщений')) {
-        container.innerHTML = '';
-    }
-    
-    const isOutgoing = msg.sender_id === currentChatUser.id;
-    const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const time = new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     
     const messageDiv = document.createElement('div');
     messageDiv.style.cssText = `
         display: flex;
-        gap: 10px;
-        align-self: ${isOutgoing ? 'flex-end' : 'flex-start'};
-        max-width: 70%;
-        margin-left: ${isOutgoing ? 'auto' : '0'};
-        animation: fadeIn 0.3s ease;
+        ${isSent ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}
     `;
     
-    if (isOutgoing) {
+    if (isSent) {
         messageDiv.innerHTML = `
             <div>
                 <div style="
                     background: var(--tg-blue);
-                    padding: 10px 14px;
-                    border-radius: 12px 12px 4px 12px;
                     color: white;
+                    padding: 10px 15px;
+                    border-radius: 18px 18px 4px 18px;
+                    max-width: 300px;
+                    word-wrap: break-word;
                 ">
-                    ${msg.content}
+                    ${content}
                 </div>
                 <div style="
-                    font-size: 11px;
+                    font-size: 12px;
                     color: var(--tg-text-secondary);
                     margin-top: 4px;
                     text-align: right;
@@ -455,14 +284,16 @@ function addNewMessage(msg) {
             <div>
                 <div style="
                     background: var(--tg-secondary-bg);
-                    padding: 10px 14px;
-                    border-radius: 12px 12px 12px 4px;
                     color: var(--tg-text-primary);
+                    padding: 10px 15px;
+                    border-radius: 18px 18px 18px 4px;
+                    max-width: 300px;
+                    word-wrap: break-word;
                 ">
-                    ${msg.content}
+                    ${content}
                 </div>
                 <div style="
-                    font-size: 11px;
+                    font-size: 12px;
                     color: var(--tg-text-secondary);
                     margin-top: 4px;
                 ">
@@ -480,37 +311,31 @@ function addNewMessage(msg) {
     }, 100);
 }
 
-// Простая функция уведомлений
-function showNotification(message) {
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        top: 80px;
-        right: 20px;
-        background: var(--tg-blue);
-        color: white;
-        padding: 12px 20px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        z-index: 9999;
-    `;
-    notification.textContent = message;
+function sendMessage() {
+    const input = document.getElementById('message-input');
+    const message = input.value.trim();
     
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.remove();
-    }, 3000);
-}
-
-// Добавить стиль для анимации
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+    if (!message || !currentChatUser) {
+        return;
     }
-`;
-document.head.appendChild(style);
+    
+    // Отправить через WebSocket
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: 'message',
+            receiver_id: currentChatUser.id,
+            content: message
+        }));
+        
+        // Добавить в чат сразу
+        addMessageToChat(message, true, new Date().toISOString());
+        
+        // Очистить поле
+        input.value = '';
+        input.focus();
+    } else {
+        alert('Нет соединения. Обновите страницу.');
+    }
+}
 </script>
 {% endblock %}

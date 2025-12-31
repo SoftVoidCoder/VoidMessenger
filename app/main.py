@@ -4,17 +4,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import datetime
 import os
 from dotenv import load_dotenv
 
 from . import models, schemas, crud, auth, dependencies
 from .database import engine, get_db
-from .websocket import websocket_endpoint  # Импортируем конкретную функцию
 
-import sys
-
-# Загружаем переменные окружения
 load_dotenv()
 
 # Создаем таблицы
@@ -34,11 +30,53 @@ templates = Jinja2Templates(directory=templates_dir)
 
 security = HTTPBearer()
 
-# WebSocket endpoint - ПРАВИЛЬНЫЙ ВЫЗОВ
-@app.websocket("/ws/{token}")
-async def websocket_connection(websocket: WebSocket, token: str):
-    db = next(get_db())
-    await websocket_endpoint(websocket, token, db)  # Вызываем функцию напрямую
+# WebSocket соединения
+connected_clients = {}
+
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: int):
+    await websocket.accept()
+    connected_clients[user_id] = websocket
+    print(f"User {user_id} connected")
+    
+    try:
+        while True:
+            data = await websocket.receive_json()
+            
+            # Отправляем сообщение
+            if data["type"] == "message":
+                receiver_id = data["receiver_id"]
+                message_text = data["content"]
+                
+                # Сохраняем в базу
+                db = next(get_db())
+                message = schemas.MessageCreate(
+                    content=message_text,
+                    receiver_id=receiver_id
+                )
+                db_message = crud.create_message(db, message, user_id)
+                
+                # Отправляем получателю
+                if receiver_id in connected_clients:
+                    await connected_clients[receiver_id].send_json({
+                        "type": "new_message",
+                        "sender_id": user_id,
+                        "content": message_text,
+                        "created_at": datetime.now().isoformat()
+                    })
+                
+                # Подтверждаем отправителю
+                await websocket.send_json({
+                    "type": "message_sent",
+                    "message_id": db_message.id
+                })
+    
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+    finally:
+        if user_id in connected_clients:
+            del connected_clients[user_id]
+        print(f"User {user_id} disconnected")
 
 # Главная страница
 @app.get("/", response_class=HTMLResponse)
@@ -56,9 +94,6 @@ async def register(
     username: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
-    phone: str = Form(None),
-    first_name: str = Form(None),
-    last_name: str = Form(None),
     db: Session = Depends(get_db)
 ):
     db_user = crud.get_user_by_email(db, email)
@@ -78,10 +113,7 @@ async def register(
     user_create = schemas.UserCreate(
         username=username,
         email=email,
-        password=password,
-        phone=phone,
-        first_name=first_name,
-        last_name=last_name
+        password=password
     )
     
     user = crud.create_user(db, user_create)
@@ -130,16 +162,13 @@ async def chats_page(
     db: Session = Depends(get_db)
 ):
     users = crud.get_all_users(db)
-    chats = crud.get_user_chats(db, current_user.id)
-    
     return templates.TemplateResponse(
         "chats.html",
         {
             "request": request,
             "current_user": current_user,
             "users": users,
-            "chats": chats,
-            "access_token": request.cookies.get("access_token", "")
+            "current_user_id": current_user.id
         }
     )
 
@@ -152,19 +181,14 @@ async def get_messages(
 ):
     messages = crud.get_messages_between_users(db, current_user.id, user_id)
     
-    # Отмечаем сообщения как прочитанные
-    crud.mark_messages_as_read(db, user_id, current_user.id)
-    
     return [
         {
             "id": msg.id,
             "sender_id": msg.sender_id,
             "receiver_id": msg.receiver_id,
             "content": msg.content,
-            "is_read": msg.is_read,
             "created_at": msg.created_at.isoformat(),
-            "sender_username": msg.sender.username,
-            "receiver_username": msg.receiver.username
+            "is_sent": msg.sender_id == current_user.id
         }
         for msg in messages
     ]
@@ -177,28 +201,4 @@ async def send_message(
     db: Session = Depends(get_db)
 ):
     db_message = crud.create_message(db, message, current_user.id)
-    
-    return {
-        "id": db_message.id,
-        "sender_id": db_message.sender_id,
-        "receiver_id": db_message.receiver_id,
-        "content": db_message.content,
-        "is_read": db_message.is_read,
-        "created_at": db_message.created_at.isoformat()
-    }
-
-# API для получения непрочитанных сообщений
-@app.get("/api/unread_count")
-async def get_unread_count(
-    current_user: models.User = Depends(dependencies.get_current_user),
-    db: Session = Depends(get_db)
-):
-    total = crud.get_unread_messages_count(db, current_user.id)
-    return {"total": total}
-
-# API endpoint для получения текущего пользователя
-@app.get("/api/me")
-async def read_current_user(
-    current_user: models.User = Depends(dependencies.get_current_user)
-):
-    return schemas.UserResponse.from_orm(current_user)
+    return {"id": db_message.id, "status": "sent"}
