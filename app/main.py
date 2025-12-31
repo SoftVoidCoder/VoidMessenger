@@ -7,6 +7,7 @@ import os
 from dotenv import load_dotenv
 
 from app.database import engine, Base, get_db
+from app import auth  # <-- Добавь этот импорт
 from app.routes import users, messages, pages
 from app.websocket import manager, websocket_endpoint
 
@@ -40,13 +41,17 @@ app.include_router(pages.router)
 app.include_router(users.router, prefix="/api")
 app.include_router(messages.router, prefix="/api")
 
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to Void Messenger"}
+
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy", "message": "Messenger API is running"}
 
 @app.get("/api/users/me")
 async def get_current_user_info(
-    current_user: dict = Depends(users.get_current_user),
+    current_user: dict = Depends(auth.get_current_user),  # <-- Используй auth.get_current_user
     db: Session = Depends(get_db)
 ):
     from app import models
