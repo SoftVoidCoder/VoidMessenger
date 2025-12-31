@@ -33,19 +33,23 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 async def get_current_user(
     request: Request,
-    token: str = Depends(oauth2_scheme), 
+    token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(database.get_db)
 ):
-    # Пробуем получить токен из куки если не в заголовках
-    if not token and request:
+    # В первую очередь проверяем куки
+    if not token:
         token = request.cookies.get("token")
     
     if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        # Пробуем взять из query параметров (для WebSocket)
+        if "token" in request.query_params:
+            token = request.query_params["token"]
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
     
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -58,7 +62,8 @@ async def get_current_user(
         user_id: int = int(payload.get("sub"))
         if user_id is None:
             raise credentials_exception
-    except (JWTError, ValueError):
+    except (JWTError, ValueError) as e:
+        print(f"❌ JWT Error: {e}, token: {token[:20]}...")
         raise credentials_exception
     
     user = db.query(models.User).filter(models.User.id == user_id).first()

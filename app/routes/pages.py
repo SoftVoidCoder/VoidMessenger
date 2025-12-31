@@ -28,17 +28,41 @@ async def register_page(request: Request):
 @router.get("/chat", response_class=HTMLResponse)
 async def chat_page(
     request: Request,
-    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Получаем список всех пользователей кроме текущего
-    users = db.query(models.User).filter(models.User.id != current_user.id).all()
+    # Сначала пробуем получить токен из куки
+    token = request.cookies.get("token")
     
-    return templates.TemplateResponse("chat.html", {
-        "request": request,
-        "current_user": current_user,
-        "users": users
-    })
+    if not token:
+        # Если нет токена в куки, редирект на логин
+        return RedirectResponse(url="/login")
+    
+    # Проверяем токен
+    try:
+        from app.auth import SECRET_KEY, ALGORITHM
+        from jose import jwt
+        
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = int(payload.get("sub"))
+        
+        # Получаем текущего пользователя
+        current_user = db.query(models.User).filter(models.User.id == user_id).first()
+        
+        if not current_user:
+            return RedirectResponse(url="/login")
+        
+        # Получаем список всех пользователей кроме текущего
+        users = db.query(models.User).filter(models.User.id != current_user.id).all()
+        
+        return templates.TemplateResponse("chat.html", {
+            "request": request,
+            "current_user": current_user,
+            "users": users
+        })
+        
+    except Exception as e:
+        print(f"❌ Ошибка аутентификации: {e}")
+        return RedirectResponse(url="/login")
 
 @router.get("/logout")
 async def logout():

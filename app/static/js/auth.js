@@ -353,6 +353,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Обработка отправки формы входа
 // Обработка отправки формы входа
 // Обработка отправки формы входа
+// Обработка отправки формы входа
 if (loginForm) {
     loginForm.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -378,37 +379,16 @@ if (loginForm) {
             if (response.ok) {
                 const tokenData = await response.json();
                 
-                // Сохраняем токен в localStorage
+                // 1. Сохраняем в localStorage
                 localStorage.setItem('token', tokenData.access_token);
                 
-                // Устанавливаем куки с токеном
-                // Важно указать max-age и path
+                // 2. Устанавливаем куки с правильными параметрами
                 document.cookie = `token=${tokenData.access_token}; path=/; max-age=${60*60*24*7}; SameSite=Lax`;
                 
-                // Добавляем токен в localStorage для использования в запросах
-                localStorage.setItem('auth_token', tokenData.access_token);
+                console.log('✅ Токен получен и сохранен');
                 
-                // Проверяем авторизацию перед переходом
-                try {
-                    // Делаем тестовый запрос с токеном
-                    const testResponse = await fetch('/api/users/me', {
-                        headers: {
-                            'Authorization': `Bearer ${tokenData.access_token}`
-                        }
-                    });
-                    
-                    if (testResponse.ok) {
-                        // Успешно - переходим в чат
-                        window.location.href = '/chat';
-                    } else {
-                        throw new Error('Ошибка авторизации');
-                    }
-                } catch (testError) {
-                    console.error('Ошибка проверки авторизации:', testError);
-                    alert('Ошибка авторизации. Попробуйте еще раз.');
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.disabled = false;
-                }
+                // 3. НЕМЕДЛЕННО переходим в чат
+                window.location.href = '/chat';
                 
             } else {
                 const errorData = await response.json();
@@ -424,7 +404,6 @@ if (loginForm) {
         }
     });
 }
-    
     // Инициализация при загрузке
     if (passwordLength) {
         updatePasswordLength('');
