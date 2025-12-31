@@ -13,7 +13,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/token", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token", auto_error=False)
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -32,12 +32,12 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 async def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme), 
-    request: Request = None,
     db: Session = Depends(database.get_db)
 ):
     # Пробуем получить токен из куки если не в заголовках
-    if not token and request:
+    if not token:
         token = request.cookies.get("token")
     
     if not token:

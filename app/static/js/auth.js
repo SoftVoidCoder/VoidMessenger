@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtn.disabled = true;
             
             try {
-                // ИСПРАВЛЕНО: правильный путь /api/register
+                // Регистрация - путь: /api/register
                 const response = await fetch('/api/register', {
                     method: 'POST',
                     headers: {
@@ -269,7 +269,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     loginFormData.append('password', formData.password);
                     
                     try {
-                        // ИСПРАВЛЕНО: правильный путь /api/token
                         const loginResponse = await fetch('/api/token', {
                             method: 'POST',
                             body: loginFormData
@@ -279,6 +278,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             const tokenData = await loginResponse.json();
                             // Сохраняем токен в localStorage
                             localStorage.setItem('token', tokenData.access_token);
+                            // Сохраняем токен в куки для FastAPI
+                            document.cookie = `token=${tokenData.access_token}; path=/; max-age=86400; SameSite=Lax`;
                             
                             // Обновляем сообщение об успехе
                             if (successMessage) {
@@ -369,7 +370,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             try {
-                // ИСПРАВЛЕНО: правильный путь /api/token
+                // Логин - путь: /api/token
                 const response = await fetch('/api/token', {
                     method: 'POST',
                     body: formData
@@ -379,6 +380,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     const tokenData = await response.json();
                     // Сохраняем токен в localStorage
                     localStorage.setItem('token', tokenData.access_token);
+                    // Сохраняем токен в куки для FastAPI - ВАЖНО!
+                    document.cookie = `token=${tokenData.access_token}; path=/; max-age=86400; SameSite=Lax`;
                     
                     // Редирект в чат
                     window.location.href = '/chat';
