@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Чаты - Messenger{% endblock %}
+
+{% block content %}
+<div class="messenger-container">
+    <!-- Сайдбар -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="user-info">
+                <div class="avatar">
+                    {{ current_user.username[0]|upper }}
+                </div>
+                <div class="user-details">
+                    <h3>{{ current_user.get_full_name() }}</h3>
+                    <p>@{{ current_user.username }}</p>
+                </div>
+            </div>
+            <a href="/logout" class="logout-btn" title="Выйти">
+                <i class="fas fa-sign-out-alt"></i>
+            </a>
+        </div>
+        
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" placeholder="Поиск...">
+        </div>
+        
+        <div class="chats-list">
+            <div class="section-title">
+                <h4>Все пользователи</h4>
+            </div>
+            
+            {% for user in users %}
+            {% if user.id != current_user.id %}
+            <div class="chat-item">
+                <div class="avatar">
+                    {{ user.username[0]|upper }}
+                </div>
+                <div class="chat-info">
+                    <h4>{{ user.get_full_name() }}</h4>
+                    <p>@{{ user.username }}</p>
+                </div>
+                <div class="chat-status">
+                    {% if user.is_active %}
+                    <span class="status-online" title="Онлайн"></span>
+                    {% else %}
+                    <span class="status-offline" title="Офлайн"></span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Основной контент -->
+    <div class="main-content">
+        <div class="empty-chat">
+            <div class="empty-icon">
+                <i class="fab fa-telegram fa-4x"></i>
+            </div>
+            <h2>Telegram-like Messenger</h2>
+            <p>Выберите чат из списка слева, чтобы начать общение</p>
+            <p class="hint">(Функциональность чатов будет добавлена позже)</p>
+            
+            <div class="user-stats">
+                <div class="stat-card">
+                    <i class="fas fa-users"></i>
+                    <h3>{{ users|length - 1 }}</h3>
+                    <p>Пользователей онлайн</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-user"></i>
+                    <h3>{{ current_user.username }}</h3>
+                    <p>Ваш username</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

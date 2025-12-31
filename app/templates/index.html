@@ -1,107 +1,31 @@
 {% extends "base.html" %}
 
-{% block title %}Главная - My Messenger{% endblock %}
+{% block title %}Главная - Messenger{% endblock %}
 
 {% block content %}
-<div class="hero-section">
-    <div class="hero-content">
-        <h1 class="hero-title">Общайтесь свободно</h1>
-        <p class="hero-subtitle">Быстрый, безопасный и красивый мессенджер для вашего общения</p>
-        
-        <div class="hero-buttons">
-            <a href="/register" class="btn btn-primary btn-lg">
-                <i class="fas fa-rocket"></i> Начать бесплатно
-            </a>
-            <a href="/login" class="btn btn-secondary btn-lg">
-                <i class="fas fa-sign-in-alt"></i> Войти в аккаунт
-            </a>
-        </div>
+<div class="auth-container">
+    <div class="logo">
+        <i class="fab fa-telegram fa-3x"></i>
+        <h1>Telegram-like Messenger</h1>
     </div>
     
-    <div class="hero-image">
-        <div class="chat-preview">
-            <div class="chat-window">
-                <div class="chat-header">
-                    <div class="chat-user">
-                        <div class="user-avatar">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <div class="user-info">
-                            <h4>Алексей</h4>
-                            <span class="user-status online">online</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="chat-messages">
-                    <div class="message received">
-                        <div class="message-content">
-                            Привет! Как дела?
-                        </div>
-                        <div class="message-time">10:30</div>
-                    </div>
-                    
-                    <div class="message sent">
-                        <div class="message-content">
-                            Привет! Все отлично, спасибо!
-                        </div>
-                        <div class="message-time">10:31</div>
-                    </div>
-                    
-                    <div class="message received">
-                        <div class="message-content">
-                            Отлично! Когда встречаемся?
-                        </div>
-                        <div class="message-time">10:32</div>
-                    </div>
-                </div>
-                
-                <div class="chat-input">
-                    <input type="text" placeholder="Напишите сообщение..." readonly>
-                    <button class="send-btn" disabled>
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
+    <div class="auth-buttons">
+        <a href="/login" class="btn btn-primary">
+            <i class="fas fa-sign-in-alt"></i> Войти
+        </a>
+        <a href="/register" class="btn btn-secondary">
+            <i class="fas fa-user-plus"></i> Зарегистрироваться
+        </a>
     </div>
-</div>
-
-<div class="features-section">
-    <h2 class="section-title">Почему выбирают нас</h2>
     
-    <div class="features-grid">
-        <div class="feature-card">
-            <div class="feature-icon">
-                <i class="fas fa-shield-alt"></i>
-            </div>
-            <h3>Безопасность</h3>
-            <p>Ваши сообщения защищены современным шифрованием</p>
-        </div>
-        
-        <div class="feature-card">
-            <div class="feature-icon">
-                <i class="fas fa-bolt"></i>
-            </div>
-            <h3>Скорость</h3>
-            <p>Мгновенная доставка сообщений с помощью WebSocket</p>
-        </div>
-        
-        <div class="feature-card">
-            <div class="feature-icon">
-                <i class="fas fa-heart"></i>
-            </div>
-            <h3>Простота</h3>
-            <p>Интуитивно понятный интерфейс без лишних сложностей</p>
-        </div>
-        
-        <div class="feature-card">
-            <div class="feature-icon">
-                <i class="fas fa-mobile-alt"></i>
-            </div>
-            <h3>Доступность</h3>
-            <p>Работает на любом устройстве с доступом в интернет</p>
-        </div>
+    <div class="features">
+        <h2>Возможности:</h2>
+        <ul>
+            <li><i class="fas fa-check"></i> Безопасная регистрация и вход</li>
+            <li><i class="fas fa-check"></i> JWT аутентификация</li>
+            <li><i class="fas fa-check"></i> Список всех пользователей</li>
+            <li><i class="fas fa-check"></i> Стиль Telegram Web</li>
+        </ul>
     </div>
 </div>
 {% endblock %}

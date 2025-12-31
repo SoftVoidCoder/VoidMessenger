@@ -1,121 +1,71 @@
 {% extends "base.html" %}
 
-{% block title %}Регистрация - Void Messenger{% endblock %}
+{% block title %}Регистрация - Messenger{% endblock %}
 
 {% block content %}
-<div class="auth-container">
-    <div class="auth-card">
-        <div class="auth-header">
-            <h2><i class="fas fa-user-plus"></i> Создать аккаунт</h2>
-            <p>Присоединяйтесь к нашему сообществу</p>
-        </div>
-        
-        <form id="registerForm" class="auth-form">
-            <div class="form-group">
-                <label for="username">
-                    <i class="fas fa-user"></i> Имя пользователя
-                </label>
-                <input type="text" id="username" name="username" required 
-                       placeholder="Введите имя пользователя (3-50 символов)"
-                       minlength="3" maxlength="50">
-                <div class="form-hint">От 3 до 50 символов</div>
-                <div id="usernameError" class="error-message"></div>
-            </div>
-            
-            <div class="form-group">
-                <label for="email">
-                    <i class="fas fa-envelope"></i> Email (необязательно)
-                </label>
-                <input type="email" id="email" name="email" 
-                       placeholder="example@mail.com"
-                       maxlength="100">
-                <div class="form-hint">Для восстановления пароля</div>
-            </div>
-            
-            <div class="form-group">
-                <label for="password">
-                    <i class="fas fa-lock"></i> Пароль (6-32 символа)
-                </label>
-                <div class="password-input-container">
-                    <input type="password" id="password" name="password" required 
-                           placeholder="Введите пароль (6-32 символа)"
-                           minlength="6" maxlength="32">
-                    <button type="button" id="togglePassword" class="toggle-password-btn">
-                        <i id="password-icon" class="fas fa-eye"></i>
-                    </button>
-                </div>
-                <div class="form-hint">
-                    <span id="passwordLength">Длина: 0/32 символов</span>
-                    <div id="passwordStrength">
-                        <div class="strength-bar" id="strengthBar"></div>
-                        <span id="strengthText">Надежность пароля</span>
-                    </div>
-                </div>
-                <div id="passwordError" class="error-message"></div>
-            </div>
-            
-            <div class="form-group">
-                <label for="confirmPassword">
-                    <i class="fas fa-lock"></i> Подтвердите пароль
-                </label>
-                <div class="password-input-container">
-                    <input type="password" id="confirmPassword" name="confirmPassword" required 
-                           placeholder="Повторите пароль"
-                           minlength="6" maxlength="32">
-                    <button type="button" id="toggleConfirmPassword" class="toggle-password-btn">
-                        <i id="confirmPassword-icon" class="fas fa-eye"></i>
-                    </button>
-                </div>
-                <div id="passwordMatch" class="form-hint"></div>
-            </div>
-            
-            <div class="form-group">
-                <div class="checkbox-group">
-                    <input type="checkbox" id="terms" name="terms" required>
-                    <label for="terms">
-                        Я принимаю <a href="#" class="link">условия использования</a> 
-                        и <a href="#" class="link">политику конфиденциальности</a>
-                    </label>
-                </div>
-                <div id="termsError" class="error-message"></div>
-            </div>
-            
-            <button type="submit" class="btn btn-primary btn-block">
-                <i class="fas fa-user-plus"></i> Зарегистрироваться
-            </button>
-            
-            <div class="auth-footer">
-                <p>Уже есть аккаунт? <a href="/login" class="link">Войти</a></p>
-            </div>
-        </form>
-        
-        <div class="auth-success" id="successMessage" style="display: none;">
-            <div class="success-icon">
-                <i class="fas fa-check-circle"></i>
-            </div>
-            <h3>Регистрация успешна!</h3>
-            <p>Аккаунт создан. Перенаправляем вас на страницу входа...</p>
-        </div>
+<div class="auth-form-container">
+    <div class="logo">
+        <i class="fab fa-telegram fa-2x"></i>
+        <h2>Регистрация в Messenger</h2>
     </div>
     
-    <div class="auth-features">
-        <h3>Преимущества регистрации:</h3>
-        <ul>
-            <li><i class="fas fa-check"></i> Безопасное общение с шифрованием</li>
-            <li><i class="fas fa-check"></i> История всех сообщений</li>
-            <li><i class="fas fa-check"></i> Мгновенные уведомления</li>
-            <li><i class="fas fa-check"></i> Доступ с любого устройства</li>
-            <li><i class="fas fa-check"></i> Отправка файлов и изображений</li>
-            <li><i class="fas fa-check"></i> Групповые чаты</li>
-            <li><i class="fas fa-check"></i> Полностью бесплатно</li>
-        </ul>
-        
-        <div class="security-tip">
-            <h4><i class="fas fa-shield-alt"></i> Безопасность</h4>
-            <p>Ваши пароли защищены современным шифрованием bcrypt.</p>
+    {% if error %}
+    <div class="alert alert-error">
+        {{ error }}
+    </div>
+    {% endif %}
+    
+    <form method="post" class="auth-form">
+        <div class="form-group">
+            <label for="username">
+                <i class="fas fa-user"></i> Имя пользователя
+            </label>
+            <input type="text" id="username" name="username" required>
         </div>
+        
+        <div class="form-group">
+            <label for="email">
+                <i class="fas fa-envelope"></i> Email
+            </label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">
+                <i class="fas fa-lock"></i> Пароль
+            </label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="phone">
+                <i class="fas fa-phone"></i> Телефон (необязательно)
+            </label>
+            <input type="tel" id="phone" name="phone">
+        </div>
+        
+        <div class="form-group">
+            <label for="first_name">
+                <i class="fas fa-id-card"></i> Имя (необязательно)
+            </label>
+            <input type="text" id="first_name" name="first_name">
+        </div>
+        
+        <div class="form-group">
+            <label for="last_name">
+                <i class="fas fa-id-card"></i> Фамилия (необязательно)
+            </label>
+            <input type="text" id="last_name" name="last_name">
+        </div>
+        
+        <button type="submit" class="btn btn-primary btn-block">
+            <i class="fas fa-user-plus"></i> Зарегистрироваться
+        </button>
+    </form>
+    
+    <div class="auth-links">
+        <p>Уже есть аккаунт? <a href="/login">Войти</a></p>
+        <p><a href="/">На главную</a></p>
     </div>
 </div>
-
-<script src="/static/js/auth.js"></script>
 {% endblock %}

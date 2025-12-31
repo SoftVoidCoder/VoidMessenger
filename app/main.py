@@ -1,105 +1,135 @@
-from fastapi import FastAPI, Request, Depends, WebSocket
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Request, Depends, HTTPException, status, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
+from datetime import timedelta
 import os
 from dotenv import load_dotenv
 
-from app.database import engine, Base, get_db
-from app import auth
-from app.routes import users, messages, pages
-from app.websocket import websocket_endpoint
+from . import models, schemas, crud, auth, dependencies
+from .database import engine, get_db
 
+# Загружаем переменные окружения
 load_dotenv()
 
 # Создаем таблицы
-Base.metadata.create_all(bind=engine)
+models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(
-    title=os.getenv("APP_NAME", "My Messenger"),
-    version="1.0.0",
-    description="Beautiful messenger with WebSockets",
-    debug=os.getenv("DEBUG", "False").lower() == "true"
-)
+app = FastAPI(title="Telegram-like Messenger")
 
-# Middleware: добавляем токен из куки в заголовки Authorization
-@app.middleware("http")
-async def add_auth_header(request: Request, call_next):
-    # Если нет заголовка Authorization, проверяем есть ли токен в localStorage через query параметр
-    auth_header = request.headers.get("authorization")
-    
-    if not auth_header and request.url.path == "/chat":
-        # Проверяем query параметр
-        token = request.query_params.get("token")
-        if token:
-            # Добавляем в заголовки
-            new_headers = dict(request.headers)
-            new_headers["authorization"] = f"Bearer {token}"
-            request._headers = new_headers
-    
-    response = await call_next(request)
-    return response
+# Настройка статических файлов и шаблонов
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
+security = HTTPBearer()
 
-# Статические файлы
-static_dir = os.path.join(os.path.dirname(__file__), "static")
-app.mount("/static", StaticFiles(directory=static_dir), name="static")
+# Главная страница
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
-# CORS - ВАЖНО: allow_credentials=True
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Регистрация
+@app.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    return templates.TemplateResponse("register.html", {"request": request})
 
-# Подключаем роуты
-app.include_router(pages.router)
-app.include_router(users.router, prefix="/api")
-app.include_router(messages.router, prefix="/api")
-
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to Void Messenger"}
-
-@app.get("/api/health")
-def health_check():
-    return {"status": "healthy", "message": "Messenger API is running"}
-
-@app.get("/api/users/me")
-async def get_current_user_info(
-    current_user: dict = Depends(auth.get_current_user),
+@app.post("/register", response_class=HTMLResponse)
+async def register(
+    request: Request,
+    username: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    phone: str = Form(None),
+    first_name: str = Form(None),
+    last_name: str = Form(None),
     db: Session = Depends(get_db)
 ):
-    from app import models
-    user = db.query(models.User).filter(models.User.id == current_user.id).first()
-    return {
-        "id": user.id,
-        "username": user.username,
-        "email": user.email,
-        "created_at": user.created_at.isoformat() if user.created_at else None
-    }
+    # Проверяем, существует ли пользователь
+    db_user = crud.get_user_by_email(db, email)
+    if db_user:
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "error": "Email already registered"}
+        )
+    
+    db_user = crud.get_user_by_username(db, username)
+    if db_user:
+        return templates.TemplateResponse(
+            "register.html",
+            {"request": request, "error": "Username already taken"}
+        )
+    
+    # Создаем пользователя
+    user_create = schemas.UserCreate(
+        username=username,
+        email=email,
+        password=password,
+        phone=phone,
+        first_name=first_name,
+        last_name=last_name
+    )
+    
+    user = crud.create_user(db, user_create)
+    
+    # Создаем токен и перенаправляем на страницу чатов
+    access_token = auth.create_access_token(data={"sub": str(user.id)})
+    response = RedirectResponse(url="/chats", status_code=status.HTTP_303_SEE_OTHER)
+    response.set_cookie(key="access_token", value=access_token, httponly=True)
+    return response
 
-# WebSocket endpoint
-@app.websocket("/ws/{user_id}")
-async def websocket_route(user_id: int, websocket: WebSocket):
-    db = next(get_db())
-    try:
-        await websocket_endpoint(websocket, user_id, db)
-    finally:
-        db.close()
+# Вход
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
 
-# Обработчик ошибок
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=500,
-        content={"detail": str(exc)}
+@app.post("/login", response_class=HTMLResponse)
+async def login(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    user = crud.authenticate_user(db, email, password)
+    if not user:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "Invalid email or password"}
+        )
+    
+    access_token = auth.create_access_token(data={"sub": str(user.id)})
+    response = RedirectResponse(url="/chats", status_code=status.HTTP_303_SEE_OTHER)
+    response.set_cookie(key="access_token", value=access_token, httponly=True)
+    return response
+
+# Выход
+@app.get("/logout")
+async def logout():
+    response = RedirectResponse(url="/")
+    response.delete_cookie(key="access_token")
+    return response
+
+# Страница чатов (требует аутентификации)
+@app.get("/chats", response_class=HTMLResponse)
+async def chats_page(
+    request: Request,
+    current_user: models.User = Depends(dependencies.get_current_user_from_cookie),
+    db: Session = Depends(get_db)
+):
+    users = crud.get_all_users(db)
+    return templates.TemplateResponse(
+        "chats.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "users": users
+        }
     )
 
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.getenv("PORT", 8000))
-    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
+# API endpoint для получения текущего пользователя
+@app.get("/api/me")
+async def read_current_user(
+    current_user: models.User = Depends(dependencies.get_current_user)
+):
+    return schemas.UserResponse.from_orm(current_user)
