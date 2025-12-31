@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -7,9 +7,9 @@ import os
 from dotenv import load_dotenv
 
 from app.database import engine, Base, get_db
-from app import auth  # <-- Добавь этот импорт
+from app import auth
 from app.routes import users, messages, pages
-from app.websocket import manager, websocket_endpoint
+from app.websocket import websocket_endpoint
 
 load_dotenv()
 
@@ -25,7 +25,8 @@ app = FastAPI(
 
 # Статические файлы
 static_dir = os.path.join(os.path.dirname(__file__), "static")
-app.mount("/static", StaticFiles(directory=static_dir), name="static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # CORS
 app.add_middleware(
@@ -43,7 +44,7 @@ app.include_router(messages.router, prefix="/api")
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to Void Messenger"}
+    return {"message": "Welcome to Void Messenger API"}
 
 @app.get("/api/health")
 def health_check():
@@ -51,7 +52,7 @@ def health_check():
 
 @app.get("/api/users/me")
 async def get_current_user_info(
-    current_user: dict = Depends(auth.get_current_user),  # <-- Используй auth.get_current_user
+    current_user: dict = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
     from app import models
@@ -60,12 +61,12 @@ async def get_current_user_info(
         "id": user.id,
         "username": user.username,
         "email": user.email,
-        "created_at": user.created_at
+        "created_at": user.created_at.isoformat() if user.created_at else None
     }
 
 # WebSocket endpoint
 @app.websocket("/ws/{user_id}")
-async def websocket_route(user_id: int, websocket: websocket.WebSocket):
+async def websocket_route(user_id: int, websocket: WebSocket):
     db = next(get_db())
     try:
         await websocket_endpoint(websocket, user_id, db)
