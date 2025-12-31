@@ -2,27 +2,21 @@ from fastapi import FastAPI, Request, Depends, HTTPException, status, Form, WebS
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
-from datetime import timedelta
-import os
-from dotenv import load_dotenv
 import json
 from typing import Dict
 
 from . import models, schemas, crud, auth, dependencies
 from .database import engine, get_db
-import sys
+import os
+from dotenv import load_dotenv
 
-# Загружаем переменные окружения
 load_dotenv()
 
-# Создаем таблицы
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Telegram-like Messenger")
 
-# Настройка статических файлов и шаблонов
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 
@@ -32,9 +26,7 @@ templates_dir = os.path.join(PROJECT_ROOT, "templates")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 templates = Jinja2Templates(directory=templates_dir)
 
-security = HTTPBearer()
-
-# WebSocket manager
+# WebSocket соединения
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[int, WebSocket] = {}
@@ -42,10 +34,12 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket, user_id: int):
         await websocket.accept()
         self.active_connections[user_id] = websocket
+        print(f"User {user_id} connected")
     
     def disconnect(self, user_id: int):
         if user_id in self.active_connections:
             del self.active_connections[user_id]
+            print(f"User {user_id} disconnected")
     
     async def send_personal_message(self, message: str, user_id: int):
         if user_id in self.active_connections:
@@ -179,28 +173,18 @@ async def chats_page(
         {
             "request": request,
             "current_user": current_user,
-            "users": users
+            "users": users,
+            "current_user_id": current_user.id
         }
     )
 
-# API для получения сообщений
-from fastapi import Cookie
-
+# API для получения сообщений (работает с cookies)
 @app.get("/api/messages/{user_id}")
 async def get_messages(
     user_id: int,
-    access_token: str = Cookie(None),  # ← Берем токен из cookies
+    current_user: models.User = Depends(dependencies.get_current_user_from_cookie),
     db: Session = Depends(get_db)
 ):
-    # Проверяем токен
-    user_id_from_token = auth.decode_access_token(access_token)
-    if not user_id_from_token:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    
-    current_user = crud.get_user_by_id(db, user_id_from_token)
-    if not current_user:
-        raise HTTPException(status_code=401, detail="User not found")
-    
     messages = crud.get_messages_between_users(db, current_user.id, user_id)
     
     return [
@@ -213,9 +197,23 @@ async def get_messages(
         }
         for msg in messages
     ]
-# API endpoint для получения текущего пользователя
-@app.get("/api/me")
-async def read_current_user(
-    current_user: models.User = Depends(dependencies.get_current_user)
+
+# Простой маршрут для получения сообщений без авторизации в заголовках
+@app.get("/messages/{user_id}")
+async def get_messages_simple(
+    user_id: int,
+    current_user: models.User = Depends(dependencies.get_current_user_from_cookie),
+    db: Session = Depends(get_db)
 ):
-    return schemas.UserResponse.from_orm(current_user)
+    messages = crud.get_messages_between_users(db, current_user.id, user_id)
+    
+    return [
+        {
+            "id": msg.id,
+            "sender_id": msg.sender_id,
+            "content": msg.content,
+            "created_at": msg.created_at.isoformat(),
+            "is_sent": msg.sender_id == current_user.id
+        }
+        for msg in messages
+    ]
