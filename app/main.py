@@ -8,8 +8,10 @@ from datetime import timedelta
 import os
 from dotenv import load_dotenv
 
-from . import models, schemas, crud, auth, dependencies, websocket
+from . import models, schemas, crud, auth, dependencies
 from .database import engine, get_db
+from .websocket import websocket_endpoint  # Импортируем конкретную функцию
+
 import sys
 
 # Загружаем переменные окружения
@@ -32,11 +34,11 @@ templates = Jinja2Templates(directory=templates_dir)
 
 security = HTTPBearer()
 
-# WebSocket endpoint
+# WebSocket endpoint - ПРАВИЛЬНЫЙ ВЫЗОВ
 @app.websocket("/ws/{token}")
 async def websocket_connection(websocket: WebSocket, token: str):
     db = next(get_db())
-    await websocket.websocket_endpoint(websocket, token, db)
+    await websocket_endpoint(websocket, token, db)  # Вызываем функцию напрямую
 
 # Главная страница
 @app.get("/", response_class=HTMLResponse)

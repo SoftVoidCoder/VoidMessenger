@@ -2,13 +2,12 @@ import json
 from typing import Dict, Set
 from fastapi import WebSocket, WebSocketDisconnect, Depends
 from sqlalchemy.orm import Session
-from . import crud, dependencies, database
+from . import crud, auth, database
+from . import schemas
 
 class ConnectionManager:
     def __init__(self):
-        # user_id -> WebSocket
         self.active_connections: Dict[int, WebSocket] = {}
-        # user_id -> set of connected clients (for multiple tabs)
         self.user_connections: Dict[int, Set[WebSocket]] = {}
     
     async def connect(self, websocket: WebSocket, user_id: int):
@@ -20,7 +19,7 @@ class ConnectionManager:
         self.user_connections[user_id].add(websocket)
         self.active_connections[user_id] = websocket
         
-        print(f"User {user_id} connected. Total connections: {len(self.active_connections)}")
+        print(f"✅ User {user_id} connected. Total connections: {len(self.active_connections)}")
     
     def disconnect(self, websocket: WebSocket, user_id: int):
         if user_id in self.user_connections:
@@ -30,7 +29,7 @@ class ConnectionManager:
                 if user_id in self.active_connections:
                     del self.active_connections[user_id]
         
-        print(f"User {user_id} disconnected. Total connections: {len(self.active_connections)}")
+        print(f"❌ User {user_id} disconnected. Total connections: {len(self.active_connections)}")
     
     async def send_personal_message(self, message: dict, user_id: int):
         if user_id in self.user_connections:
@@ -46,13 +45,9 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-async def websocket_endpoint(
-    websocket: WebSocket,
-    token: str,
-    db: Session = Depends(database.get_db)
-):
-    # Декодируем токен и получаем пользователя
-    from . import auth
+async def websocket_endpoint(websocket: WebSocket, token: str, db: Session):
+    """WebSocket endpoint для обработки соединений"""
+    # Декодируем токен
     user_id = auth.decode_access_token(token)
     if not user_id:
         await websocket.close(code=1008)
@@ -67,8 +62,9 @@ async def websocket_endpoint(
     
     try:
         while True:
-            # Получаем сообщение от клиента
+            # Ждем данные от клиента
             data = await websocket.receive_json()
+            print(f"📨 Received WebSocket data from user {user_id}: {data}")
             
             if data["type"] == "message":
                 # Создаем сообщение в БД
@@ -81,7 +77,7 @@ async def websocket_endpoint(
                     sender_id=user_id
                 )
                 
-                # Получаем данные отправителя и получателя
+                # Получаем данные пользователей
                 sender = crud.get_user_by_id(db, user_id)
                 receiver = crud.get_user_by_id(db, data["receiver_id"])
                 
@@ -95,16 +91,18 @@ async def websocket_endpoint(
                         "content": data["content"],
                         "is_read": False,
                         "created_at": message.created_at.isoformat(),
-                        "sender_username": sender.username,
+                        "sender_username": sender.username if sender else "",
                         "receiver_username": receiver.username if receiver else ""
                     }
                 }
                 
-                # Отправляем отправителю (для синхронизации)
+                # Отправляем отправителю
                 await manager.send_personal_message(response, user_id)
                 
-                # Отправляем получателю
+                # Отправляем получателю, если он онлайн
                 await manager.send_personal_message(response, data["receiver_id"])
+                
+                print(f"📤 Message sent from {user_id} to {data['receiver_id']}")
             
             elif data["type"] == "read_messages":
                 # Отмечаем сообщения как прочитанные
@@ -117,7 +115,7 @@ async def websocket_endpoint(
                     "count": count
                 }
                 
-                # Уведомляем отправителя, что его сообщения прочитаны
+                # Уведомляем отправителя
                 await manager.send_personal_message(response, data["sender_id"])
             
             elif data["type"] == "typing":
@@ -132,7 +130,8 @@ async def websocket_endpoint(
                 await manager.send_personal_message(response, data["receiver_id"])
     
     except WebSocketDisconnect:
+        print(f"🔌 WebSocket disconnected for user {user_id}")
         manager.disconnect(websocket, user_id)
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        print(f"💥 WebSocket error for user {user_id}: {e}")
         manager.disconnect(websocket, user_id)
