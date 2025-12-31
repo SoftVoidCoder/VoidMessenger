@@ -1,36 +1,48 @@
-/* Telegram Web стили */
+/* Telegram Web Light Theme - Точная копия оригинала */
 :root {
     /* Основные цвета Telegram */
-    --tg-primary: #0088cc;
-    --tg-primary-hover: #0077b3;
-    --tg-secondary: #6c757d;
-    --tg-success: #28a745;
-    --tg-danger: #dc3545;
-    --tg-warning: #ffc107;
-    --tg-info: #17a2b8;
+    --tg-blue: #3390ec;
+    --tg-blue-hover: #2380dc;
+    --tg-green: #32a955;
+    --tg-red: #ff3b30;
+    --tg-yellow: #ffcc00;
+    --tg-purple: #af52de;
     
-    /* Фоны */
-    --tg-bg-primary: #0e1621;
-    --tg-bg-secondary: #17212b;
-    --tg-bg-tertiary: #242f3d;
+    /* Светлая тема Telegram */
+    --tg-bg: #ffffff;
+    --tg-secondary-bg: #f8f9fa;
+    --tg-tertiary-bg: #f0f2f5;
+    --tg-modal-bg: #ffffff;
     
     /* Текст */
-    --tg-text-primary: #ffffff;
-    --tg-text-secondary: #8a8d91;
-    --tg-text-muted: #6c757d;
+    --tg-text-primary: #000000;
+    --tg-text-secondary: #707579;
+    --tg-text-muted: #a8a8a8;
+    --tg-text-link: #3390ec;
     
     /* Границы */
-    --tg-border-color: #2a2d32;
-    --tg-border-light: #3d444d;
+    --tg-border: #e5e5e5;
+    --tg-border-light: #f1f1f1;
+    --tg-border-dark: #d1d1d1;
     
     /* Ховеры */
-    --tg-hover-bg: #1e2c3a;
-    --tg-active-bg: #2b5278;
+    --tg-hover-bg: #f5f5f5;
+    --tg-active-bg: #e8f4ff;
     
     /* Тени */
-    --tg-shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-    --tg-shadow-md: 0 4px 6px rgba(0,0,0,0.4);
-    --tg-shadow-lg: 0 10px 25px rgba(0,0,0,0.5);
+    --tg-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    --tg-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --tg-shadow-inset: inset 0 0 0 1px var(--tg-border);
+    
+    /* Состояния */
+    --tg-online: #32a955;
+    --tg-offline: #a8a8a8;
+    --tg-typing: #3390ec;
+    
+    /* Размеры */
+    --tg-sidebar-width: 360px;
+    --tg-header-height: 60px;
+    --tg-input-height: 48px;
 }
 
 /* Сброс и базовые стили */
@@ -41,28 +53,37 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
-    background-color: var(--tg-bg-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: var(--tg-bg);
     color: var(--tg-text-primary);
-    min-height: 100vh;
-    overflow-x: hidden;
+    font-size: 14px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
+/* Контейнер */
 .container {
-    max-width: 100vw;
-    min-height: 100vh;
-    margin: 0 auto;
-    background-color: var(--tg-bg-primary);
+    width: 100%;
+    height: 100vh;
+    background-color: var(--tg-bg);
 }
 
-/* Telegram Header стиль */
+/* Telegram Header */
 .tg-header {
-    background-color: var(--tg-bg-secondary);
-    padding: 12px 20px;
-    border-bottom: 1px solid var(--tg-border-color);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--tg-header-height);
+    background-color: var(--tg-bg);
+    border-bottom: 1px solid var(--tg-border);
     display: flex;
     align-items: center;
     justify-content: space-between;
+    padding: 0 20px;
+    z-index: 1000;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .tg-logo {
@@ -72,19 +93,20 @@ body {
 }
 
 .tg-logo-icon {
-    color: var(--tg-primary);
-    font-size: 28px;
+    color: var(--tg-blue);
+    font-size: 24px;
 }
 
 .tg-logo-text {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 600;
     color: var(--tg-text-primary);
 }
 
 .tg-nav {
     display: flex;
-    gap: 20px;
+    gap: 16px;
+    align-items: center;
 }
 
 .tg-nav-link {
@@ -92,13 +114,20 @@ body {
     text-decoration: none;
     font-size: 14px;
     padding: 8px 12px;
-    border-radius: 6px;
-    transition: all 0.2s ease;
+    border-radius: 8px;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .tg-nav-link:hover {
-    color: var(--tg-text-primary);
     background-color: var(--tg-hover-bg);
+    color: var(--tg-text-primary);
+}
+
+.tg-nav-link i {
+    font-size: 16px;
 }
 
 /* Аутентификация */
@@ -106,23 +135,24 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: calc(100vh - 60px);
-    padding: 40px 20px;
+    min-height: 100vh;
+    padding: 80px 20px 40px;
+    background-color: var(--tg-secondary-bg);
 }
 
 .auth-container {
     width: 100%;
-    max-width: 420px;
-    background-color: var(--tg-bg-secondary);
+    max-width: 400px;
+    background-color: var(--tg-bg);
     border-radius: 12px;
     padding: 40px;
     box-shadow: var(--tg-shadow-lg);
-    border: 1px solid var(--tg-border-color);
+    border: 1px solid var(--tg-border);
 }
 
 .auth-header {
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 32px;
 }
 
 .auth-logo {
@@ -132,12 +162,12 @@ body {
 }
 
 .auth-logo i {
-    font-size: 48px;
-    color: var(--tg-primary);
+    font-size: 64px;
+    color: var(--tg-blue);
 }
 
 .auth-title {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 600;
     margin-bottom: 8px;
     color: var(--tg-text-primary);
@@ -155,7 +185,7 @@ body {
 }
 
 .form-group {
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 
 .form-label {
@@ -168,92 +198,101 @@ body {
 
 .form-control {
     width: 100%;
-    padding: 14px 16px;
-    background-color: var(--tg-bg-tertiary);
-    border: 1px solid var(--tg-border-color);
-    border-radius: 8px;
+    height: 48px;
+    padding: 0 16px;
+    background-color: var(--tg-bg);
+    border: 1px solid var(--tg-border);
+    border-radius: 10px;
     color: var(--tg-text-primary);
     font-size: 15px;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
+    font-family: inherit;
 }
 
 .form-control:focus {
     outline: none;
-    border-color: var(--tg-primary);
-    box-shadow: 0 0 0 2px rgba(0, 136, 204, 0.2);
+    border-color: var(--tg-blue);
+    box-shadow: 0 0 0 3px rgba(51, 144, 236, 0.1);
 }
 
 .form-control::placeholder {
     color: var(--tg-text-muted);
 }
 
-/* Кнопки */
+/* Кнопки Telegram */
 .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 14px 24px;
+    height: 48px;
+    padding: 0 24px;
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 15px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
     text-decoration: none;
     font-family: inherit;
+    white-space: nowrap;
 }
 
 .btn-primary {
-    background-color: var(--tg-primary);
+    background-color: var(--tg-blue);
     color: white;
 }
 
 .btn-primary:hover {
-    background-color: var(--tg-primary-hover);
+    background-color: var(--tg-blue-hover);
     transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(51, 144, 236, 0.2);
 }
 
 .btn-secondary {
-    background-color: var(--tg-bg-tertiary);
+    background-color: var(--tg-secondary-bg);
     color: var(--tg-text-primary);
-    border: 1px solid var(--tg-border-color);
+    border: 1px solid var(--tg-border);
 }
 
 .btn-secondary:hover {
     background-color: var(--tg-hover-bg);
+    border-color: var(--tg-border-dark);
 }
 
 .btn-block {
     width: 100%;
 }
 
-.btn-sm {
-    padding: 10px 16px;
-    font-size: 14px;
-}
-
 /* Аллерты */
 .alert {
     padding: 16px;
-    border-radius: 8px;
-    margin-bottom: 24px;
+    border-radius: 10px;
+    margin-bottom: 20px;
     font-size: 14px;
     border: 1px solid transparent;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
 }
 
 .alert-error {
-    background-color: rgba(220, 53, 69, 0.1);
-    border-color: rgba(220, 53, 69, 0.3);
-    color: #ff6b6b;
+    background-color: rgba(255, 59, 48, 0.05);
+    border-color: rgba(255, 59, 48, 0.2);
+    color: var(--tg-red);
+}
+
+.alert i {
+    font-size: 18px;
+    margin-top: 1px;
 }
 
 /* Ссылки */
 .auth-links {
     text-align: center;
-    margin-top: 30px;
+    margin-top: 24px;
     padding-top: 24px;
-    border-top: 1px solid var(--tg-border-color);
+    border-top: 1px solid var(--tg-border);
 }
 
 .auth-links p {
@@ -263,40 +302,46 @@ body {
 }
 
 .tg-link {
-    color: var(--tg-primary);
+    color: var(--tg-blue);
     text-decoration: none;
     font-weight: 500;
-    transition: color 0.2s ease;
+    transition: color 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .tg-link:hover {
-    color: #4dabf7;
+    color: var(--tg-blue-hover);
     text-decoration: underline;
 }
 
-/* Messenger интерфейс */
+/* Messenger интерфейс - точный Telegram Web */
 .messenger-app {
     display: flex;
-    height: calc(100vh - 60px);
+    height: calc(100vh - var(--tg-header-height));
+    margin-top: var(--tg-header-height);
 }
 
-/* Сайдбар */
+/* Сайдбар Telegram */
 .sidebar {
-    width: 360px;
-    background-color: var(--tg-bg-secondary);
-    border-right: 1px solid var(--tg-border-color);
+    width: var(--tg-sidebar-width);
+    background-color: var(--tg-bg);
+    border-right: 1px solid var(--tg-border);
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    height: 100%;
 }
 
 .sidebar-header {
-    padding: 20px;
-    border-bottom: 1px solid var(--tg-border-color);
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--tg-border);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background-color: var(--tg-bg-secondary);
+    background-color: var(--tg-bg);
+    min-height: 60px;
 }
 
 .user-info {
@@ -306,34 +351,40 @@ body {
 }
 
 .user-avatar {
-    width: 44px;
-    height: 44px;
-    background: linear-gradient(135deg, var(--tg-primary), #4dabf7);
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--tg-blue), #4dabf7);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 18px;
+    font-size: 16px;
     color: white;
     flex-shrink: 0;
 }
 
+.user-details {
+    flex: 1;
+}
+
 .user-details h3 {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
+    color: var(--tg-text-primary);
 }
 
 .user-details p {
     color: var(--tg-text-secondary);
-    font-size: 14px;
+    font-size: 13px;
 }
 
+/* Поиск Telegram */
 .search-box {
-    padding: 16px 20px;
+    padding: 12px 20px;
     position: relative;
-    border-bottom: 1px solid var(--tg-border-color);
+    border-bottom: 1px solid var(--tg-border);
 }
 
 .search-box i {
@@ -341,50 +392,54 @@ body {
     left: 36px;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--tg-text-secondary);
+    color: var(--tg-text-muted);
     font-size: 16px;
+    z-index: 1;
 }
 
 .search-box input {
     width: 100%;
-    padding: 12px 16px 12px 44px;
-    background-color: var(--tg-bg-tertiary);
-    border: 1px solid var(--tg-border-color);
-    border-radius: 20px;
+    height: 36px;
+    padding: 0 16px 0 40px;
+    background-color: var(--tg-secondary-bg);
+    border: none;
+    border-radius: 8px;
     color: var(--tg-text-primary);
     font-size: 14px;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
 }
 
 .search-box input:focus {
     outline: none;
-    border-color: var(--tg-primary);
-    background-color: var(--tg-bg-primary);
+    background-color: var(--tg-bg);
+    box-shadow: var(--tg-shadow-inset);
 }
 
+/* Список чатов Telegram */
 .chats-list {
     flex: 1;
     overflow-y: auto;
-    padding: 0;
+    padding: 8px 0;
 }
 
 .chats-title {
-    padding: 16px 20px 8px;
-    color: var(--tg-text-secondary);
+    padding: 12px 20px 8px;
+    color: var(--tg-text-muted);
     font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
 }
 
 .chat-item {
-    padding: 12px 20px;
+    padding: 10px 20px;
     display: flex;
     align-items: center;
     gap: 12px;
     cursor: pointer;
-    transition: background-color 0.2s ease;
-    border-bottom: 1px solid var(--tg-border-color);
+    transition: background-color 0.15s ease;
+    position: relative;
+    border-bottom: 1px solid var(--tg-border-light);
 }
 
 .chat-item:hover {
@@ -395,16 +450,26 @@ body {
     background-color: var(--tg-active-bg);
 }
 
+.chat-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background-color: var(--tg-blue);
+}
+
 .chat-avatar {
-    width: 52px;
-    height: 52px;
-    background: linear-gradient(135deg, var(--tg-secondary), var(--tg-info));
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, var(--tg-blue), var(--tg-green));
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 20px;
+    font-size: 18px;
     color: white;
     flex-shrink: 0;
 }
@@ -415,9 +480,10 @@ body {
 }
 
 .chat-info h4 {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
     margin-bottom: 4px;
+    color: var(--tg-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -425,7 +491,7 @@ body {
 
 .chat-info p {
     color: var(--tg-text-secondary);
-    font-size: 14px;
+    font-size: 13px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -435,29 +501,31 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
 }
 
 .status-indicator {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background-color: var(--tg-success);
-    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.3);
+    background-color: var(--tg-online);
+    box-shadow: 0 0 0 2px rgba(50, 169, 85, 0.2);
 }
 
 .status-indicator.offline {
-    background-color: var(--tg-text-muted);
+    background-color: var(--tg-offline);
     box-shadow: none;
 }
 
-/* Основной чат */
+/* Основной чат Telegram */
 .chat-area {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background-color: var(--tg-bg-primary);
+    background-color: var(--tg-bg);
+    position: relative;
 }
 
 .empty-chat {
@@ -468,102 +536,122 @@ body {
     height: 100%;
     padding: 40px;
     text-align: center;
+    background-color: var(--tg-bg);
 }
 
 .empty-chat-icon {
-    margin-bottom: 30px;
+    margin-bottom: 24px;
 }
 
 .empty-chat-icon i {
-    font-size: 80px;
-    color: var(--tg-primary);
-    opacity: 0.5;
+    font-size: 96px;
+    color: var(--tg-blue);
+    opacity: 0.1;
 }
 
 .empty-chat h2 {
-    font-size: 32px;
+    font-size: 28px;
     font-weight: 600;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     color: var(--tg-text-primary);
 }
 
 .empty-chat p {
     color: var(--tg-text-secondary);
-    font-size: 16px;
-    line-height: 1.6;
+    font-size: 15px;
+    line-height: 1.5;
     max-width: 400px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 .empty-chat .hint {
     color: var(--tg-text-muted);
-    font-size: 14px;
+    font-size: 13px;
     font-style: italic;
-    margin-top: 20px;
+    margin-top: 16px;
 }
 
-/* Статистика */
+/* Статистика Telegram */
 .user-stats {
     display: flex;
-    gap: 24px;
-    margin-top: 40px;
+    gap: 20px;
+    margin-top: 32px;
 }
 
 .stat-card {
-    background-color: var(--tg-bg-secondary);
-    padding: 24px;
+    background-color: var(--tg-secondary-bg);
+    padding: 20px;
     border-radius: 12px;
-    min-width: 160px;
+    min-width: 150px;
     text-align: center;
-    border: 1px solid var(--tg-border-color);
-    transition: transform 0.2s ease;
+    border: 1px solid var(--tg-border);
+    transition: all 0.15s ease;
 }
 
 .stat-card:hover {
-    transform: translateY(-4px);
+    transform: translateY(-2px);
+    box-shadow: var(--tg-shadow);
+    border-color: var(--tg-border-dark);
 }
 
 .stat-card i {
-    font-size: 32px;
-    color: var(--tg-primary);
-    margin-bottom: 16px;
+    font-size: 28px;
+    color: var(--tg-blue);
+    margin-bottom: 12px;
 }
 
 .stat-card h3 {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 700;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     color: var(--tg-text-primary);
 }
 
 .stat-card p {
     color: var(--tg-text-secondary);
+    font-size: 13px;
+}
+
+/* Особенности Telegram */
+.tg-feature-list {
+    list-style: none;
+    margin: 24px 0;
+}
+
+.tg-feature-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    color: var(--tg-text-secondary);
     font-size: 14px;
+}
+
+.tg-feature-list i {
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
 }
 
 /* Адаптивность */
 @media (max-width: 1024px) {
     .sidebar {
-        width: 300px;
+        width: 320px;
     }
 }
 
 @media (max-width: 768px) {
-    .container {
-        min-height: 100vh;
-    }
-    
     .tg-header {
-        padding: 12px 16px;
+        padding: 0 16px;
     }
     
     .auth-container {
         padding: 32px 24px;
-        margin: 20px;
+        margin: 16px;
     }
     
-    .messenger-app {
-        height: calc(100vh - 56px);
+    .auth-wrapper {
+        padding: 60px 16px 32px;
     }
     
     .user-stats {
@@ -574,7 +662,7 @@ body {
     
     .stat-card {
         width: 100%;
-        max-width: 280px;
+        max-width: 260px;
     }
 }
 
@@ -584,7 +672,7 @@ body {
     }
     
     .sidebar-header {
-        padding: 16px;
+        padding: 12px 16px;
     }
     
     .search-box {
@@ -592,24 +680,63 @@ body {
     }
     
     .chat-item {
-        padding: 12px 16px;
+        padding: 10px 16px;
+    }
+    
+    .tg-nav {
+        gap: 8px;
+    }
+    
+    .tg-nav-link span {
+        display: none;
     }
 }
 
-/* Прокрутка */
+/* Прокрутка Telegram */
 ::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--tg-bg-tertiary);
+    background: var(--tg-secondary-bg);
+    border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--tg-border-light);
-    border-radius: 4px;
+    background: var(--tg-text-muted);
+    border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--tg-text-muted);
+    background: var(--tg-text-secondary);
+}
+
+/* Анимации */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease;
+}
+
+/* Иконки состояний */
+.icon-online {
+    color: var(--tg-online);
+}
+
+.icon-offline {
+    color: var(--tg-offline);
+}
+
+.icon-typing {
+    color: var(--tg-typing);
 }

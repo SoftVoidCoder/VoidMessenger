@@ -8,14 +8,15 @@
     </div>
     <nav class="tg-nav">
         <a href="/logout" class="tg-nav-link">
-            <i class="fas fa-sign-out-alt"></i> Выйти
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Выйти</span>
         </a>
     </nav>
 </header>
 {% endblock %}
 
 {% block content %}
-<div class="messenger-app">
+<div class="messenger-app fade-in">
     <!-- Сайдбар -->
     <div class="sidebar">
         <div class="sidebar-header">
@@ -32,7 +33,7 @@
         
         <div class="search-box">
             <i class="fas fa-search"></i>
-            <input type="text" placeholder="Поиск чатов и сообщений...">
+            <input type="text" placeholder="Поиск" id="chat-search">
         </div>
         
         <div class="chats-list">
@@ -40,7 +41,7 @@
             
             {% for user in users %}
             {% if user.id != current_user.id %}
-            <div class="chat-item">
+            <div class="chat-item" data-username="@{{ user.username }}">
                 <div class="chat-avatar">
                     {{ user.username[0]|upper }}
                 </div>
@@ -66,13 +67,13 @@
             </div>
             <h2>Telegram Web</h2>
             <p>Выберите чат из списка слева, чтобы начать общение</p>
-            <p class="hint">(Функциональность сообщений будет добавлена в ближайшее время)</p>
+            <p class="hint">Функциональность сообщений будет добавлена в ближайшее время</p>
             
             <div class="user-stats">
                 <div class="stat-card">
                     <i class="fas fa-users"></i>
                     <h3>{{ users|length - 1 }}</h3>
-                    <p>Всего пользователей</p>
+                    <p>Доступных контактов</p>
                 </div>
                 <div class="stat-card">
                     <i class="fas fa-user-circle"></i>
@@ -83,4 +84,120 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Инициализация поиска
+    const searchInput = document.getElementById('chat-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            const chatItems = document.querySelectorAll('.chat-item');
+            
+            chatItems.forEach(item => {
+                const username = item.getAttribute('data-username').toLowerCase();
+                const name = item.querySelector('h4').textContent.toLowerCase();
+                
+                if (searchTerm === '' || username.includes(searchTerm) || name.includes(searchTerm)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    }
+    
+    // Инициализация чатов
+    const chatItems = document.querySelectorAll('.chat-item');
+    chatItems.forEach(item => {
+        item.addEventListener('click', function() {
+            // Убираем активный класс
+            chatItems.forEach(i => i.classList.remove('active'));
+            
+            // Добавляем активный класс
+            this.classList.add('active');
+            
+            // Получаем информацию о пользователе
+            const username = this.getAttribute('data-username');
+            const name = this.querySelector('h4').textContent;
+            
+            // Показываем уведомление
+            showNotification(`Выбран чат с ${name} ${username}`);
+        });
+    });
+    
+    // Функция показа уведомления
+    function showNotification(message) {
+        // Создаем стили для уведомления если их нет
+        if (!document.getElementById('tg-notification-style')) {
+            const style = document.createElement('style');
+            style.id = 'tg-notification-style';
+            style.textContent = `
+                .tg-notification {
+                    position: fixed;
+                    top: 80px;
+                    right: 20px;
+                    background: var(--tg-bg);
+                    color: var(--tg-text-primary);
+                    padding: 12px 20px;
+                    border-radius: 10px;
+                    box-shadow: var(--tg-shadow-lg);
+                    border: 1px solid var(--tg-border);
+                    border-left: 4px solid var(--tg-blue);
+                    z-index: 9999;
+                    animation: tgSlideIn 0.3s ease;
+                    max-width: 300px;
+                    font-size: 14px;
+                }
+                
+                @keyframes tgSlideIn {
+                    from {
+                        transform: translateX(100%);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+                
+                @keyframes tgSlideOut {
+                    from {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                    to {
+                        transform: translateX(100%);
+                        opacity: 0;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // Создаем уведомление
+        const notification = document.createElement('div');
+        notification.className = 'tg-notification';
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-info-circle" style="color: var(--tg-blue);"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        
+        // Добавляем уведомление
+        document.body.appendChild(notification);
+        
+        // Удаляем через 3 секунды
+        setTimeout(() => {
+            notification.style.animation = 'tgSlideOut 0.3s ease';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+    }
+});
+</script>
 {% endblock %}

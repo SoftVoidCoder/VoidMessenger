@@ -1,31 +1,65 @@
 {% extends "base.html" %}
 
-{% block title %}Главная - Messenger{% endblock %}
+{% block header %}
+<header class="tg-header">
+    <div class="tg-logo">
+        <i class="fab fa-telegram tg-logo-icon"></i>
+        <span class="tg-logo-text">Telegram Web</span>
+    </div>
+    <nav class="tg-nav">
+        <a href="/login" class="tg-nav-link">
+            <i class="fas fa-sign-in-alt"></i>
+            <span>Войти</span>
+        </a>
+        <a href="/register" class="tg-nav-link">
+            <i class="fas fa-user-plus"></i>
+            <span>Регистрация</span>
+        </a>
+    </nav>
+</header>
+{% endblock %}
 
 {% block content %}
-<div class="auth-container">
-    <div class="logo">
-        <i class="fab fa-telegram fa-3x"></i>
-        <h1>Telegram-like Messenger</h1>
-    </div>
-    
-    <div class="auth-buttons">
-        <a href="/login" class="btn btn-primary">
-            <i class="fas fa-sign-in-alt"></i> Войти
-        </a>
-        <a href="/register" class="btn btn-secondary">
-            <i class="fas fa-user-plus"></i> Зарегистрироваться
-        </a>
-    </div>
-    
-    <div class="features">
-        <h2>Возможности:</h2>
-        <ul>
-            <li><i class="fas fa-check"></i> Безопасная регистрация и вход</li>
-            <li><i class="fas fa-check"></i> JWT аутентификация</li>
-            <li><i class="fas fa-check"></i> Список всех пользователей</li>
-            <li><i class="fas fa-check"></i> Стиль Telegram Web</li>
-        </ul>
+<div class="auth-wrapper fade-in">
+    <div class="auth-container">
+        <div class="auth-header">
+            <div class="auth-logo">
+                <i class="fab fa-telegram"></i>
+            </div>
+            <h1 class="auth-title">Telegram Web</h1>
+            <p class="auth-subtitle">
+                Быстрый и безопасный мессенджер для общения с друзьями и коллегами.
+                Работает на всех устройствах.
+            </p>
+        </div>
+        
+        <div class="auth-buttons" style="display: flex; flex-direction: column; gap: 12px;">
+            <a href="/login" class="btn btn-primary btn-block">
+                <i class="fas fa-sign-in-alt"></i> Войти в Telegram
+            </a>
+            <a href="/register" class="btn btn-secondary btn-block">
+                <i class="fas fa-user-plus"></i> Создать аккаунт
+            </a>
+        </div>
+        
+        <div class="tg-feature-list">
+            <li>
+                <i class="fas fa-shield-alt" style="color: var(--tg-green);"></i>
+                <span>Конфиденциальность и безопасность</span>
+            </li>
+            <li>
+                <i class="fas fa-bolt" style="color: var(--tg-blue);"></i>
+                <span>Мгновенная доставка сообщений</span>
+            </li>
+            <li>
+                <i class="fas fa-sync-alt" style="color: var(--tg-purple);"></i>
+                <span>Синхронизация между устройствами</span>
+            </li>
+            <li>
+                <i class="fas fa-paper-plane" style="color: var(--tg-yellow);"></i>
+                <span>Обмен файлами без ограничений</span>
+            </li>
+        </div>
     </div>
 </div>
 {% endblock %}

@@ -7,72 +7,79 @@
         <span class="tg-logo-text">Telegram Web</span>
     </div>
     <nav class="tg-nav">
-        <a href="/" class="tg-nav-link">На главную</a>
-        <a href="/login" class="tg-nav-link">Вход</a>
+        <a href="/" class="tg-nav-link">
+            <i class="fas fa-home"></i>
+            <span>Главная</span>
+        </a>
+        <a href="/login" class="tg-nav-link">
+            <i class="fas fa-sign-in-alt"></i>
+            <span>Вход</span>
+        </a>
     </nav>
 </header>
 {% endblock %}
 
 {% block content %}
-<div class="auth-wrapper">
+<div class="auth-wrapper fade-in">
     <div class="auth-container">
         <div class="auth-header">
             <div class="auth-logo">
                 <i class="fab fa-telegram"></i>
             </div>
-            <h1 class="auth-title">Создание аккаунта</h1>
+            <h1 class="auth-title">Регистрация в Telegram</h1>
             <p class="auth-subtitle">
-                Заполните форму ниже для регистрации в Telegram Web
+                Создайте аккаунт для использования Telegram Web
             </p>
         </div>
         
         {% if error %}
         <div class="alert alert-error">
-            <i class="fas fa-exclamation-circle"></i> {{ error }}
+            <i class="fas fa-exclamation-circle"></i>
+            <div>{{ error }}</div>
         </div>
         {% endif %}
         
         <form method="post" class="tg-form">
             <div class="form-group">
                 <label for="username" class="form-label">Имя пользователя</label>
-                <input type="text" id="username" name="username" class="form-control" placeholder="Придумайте username" required>
+                <input type="text" id="username" name="username" class="form-control" 
+                       placeholder="username" required>
             </div>
             
             <div class="form-group">
                 <label for="email" class="form-label">Email</label>
-                <input type="email" id="email" name="email" class="form-control" placeholder="Введите ваш email" required>
+                <input type="email" id="email" name="email" class="form-control" 
+                       placeholder="email@example.com" required>
             </div>
             
             <div class="form-group">
                 <label for="password" class="form-label">Пароль</label>
-                <input type="password" id="password" name="password" class="form-control" placeholder="Создайте надежный пароль" required>
+                <input type="password" id="password" name="password" class="form-control" 
+                       placeholder="Создайте пароль" required>
             </div>
             
             <div class="form-group">
                 <label for="first_name" class="form-label">Имя (необязательно)</label>
-                <input type="text" id="first_name" name="first_name" class="form-control" placeholder="Ваше имя">
+                <input type="text" id="first_name" name="first_name" class="form-control" 
+                       placeholder="Ваше имя">
             </div>
             
             <div class="form-group">
                 <label for="last_name" class="form-label">Фамилия (необязательно)</label>
-                <input type="text" id="last_name" name="last_name" class="form-control" placeholder="Ваша фамилия">
-            </div>
-            
-            <div class="form-group">
-                <label for="phone" class="form-label">Телефон (необязательно)</label>
-                <input type="tel" id="phone" name="phone" class="form-control" placeholder="+7 (XXX) XXX-XX-XX">
+                <input type="text" id="last_name" name="last_name" class="form-control" 
+                       placeholder="Ваша фамилия">
             </div>
             
             <div class="form-group">
                 <button type="submit" class="btn btn-primary btn-block">
-                    <i class="fas fa-user-plus"></i> Создать аккаунт
+                    <i class="fas fa-user-plus"></i> Зарегистрироваться
                 </button>
             </div>
         </form>
         
         <div class="auth-links">
             <p>Уже есть аккаунт? <a href="/login" class="tg-link">Войти</a></p>
-            <p><a href="/" class="tg-link"><i class="fas fa-arrow-left"></i> На главную</a></p>
+            <p><a href="/" class="tg-link"><i class="fas fa-arrow-left"></i> Вернуться на главную</a></p>
         </div>
     </div>
 </div>
