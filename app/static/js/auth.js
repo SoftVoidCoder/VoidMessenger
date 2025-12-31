@@ -349,11 +349,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Обработка отправки формы входа
-    // Обработка отправки формы входа
-// Обработка отправки формы входа
-// Обработка отправки формы входа
-// Обработка отправки формы входа
+ 
 if (loginForm) {
     loginForm.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -373,21 +369,31 @@ if (loginForm) {
         try {
             const response = await fetch('/api/token', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'include'  // ВАЖНО: для работы с куки
             });
             
             if (response.ok) {
                 const tokenData = await response.json();
+                console.log('✅ Токен получен:', tokenData.access_token.substring(0, 20) + '...');
                 
-                // 1. Сохраняем в localStorage
+                // 1. Сохраняем в localStorage (для JavaScript)
                 localStorage.setItem('token', tokenData.access_token);
                 
-                // 2. Устанавливаем куки с правильными параметрами
-                document.cookie = `token=${tokenData.access_token}; path=/; max-age=${60*60*24*7}; SameSite=Lax`;
+                // 2. Устанавливаем куку С ПРАВИЛЬНЫМИ ПАРАМЕТРАМИ
+                // Важно: path=/ чтобы кука была доступна на всех страницах
+                // max-age=604800 = 7 дней
+                document.cookie = `token=${tokenData.access_token}; path=/; max-age=604800; SameSite=Lax`;
                 
-                console.log('✅ Токен получен и сохранен');
+                console.log('🍪 Кука установлена');
                 
-                // 3. НЕМЕДЛЕННО переходим в чат
+                // 3. Ждем 100мс чтобы кука точно установилась
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // 4. Проверяем что кука установилась
+                console.log('📋 Проверяем куки:', document.cookie.substring(0, 50) + '...');
+                
+                // 5. Переходим в чат
                 window.location.href = '/chat';
                 
             } else {

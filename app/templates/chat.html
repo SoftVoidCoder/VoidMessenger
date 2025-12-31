@@ -88,236 +88,49 @@
 <div id="currentUserName" style="display: none;">{{ current_user.username }}</div>
 
 <script>
-    // Данные пользователя
-    let currentUserId = null;
-    let currentUserName = null;
+    // Данные пользователя (должны быть переданы сервером)
+    let currentUserId = parseInt(document.getElementById('currentUserId').textContent);
+    let currentUserName = document.getElementById('currentUserName').textContent;
     let selectedUserId = null;
     let selectedUserName = null;
     let ws = null;
-    let isAuthenticated = false;
     
     // Хранилище сообщений по чатам
     let chatMessages = {};
     
     // ========== ОСНОВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ==========
-    document.addEventListener('DOMContentLoaded', async function() {
+    document.addEventListener('DOMContentLoaded', function() {
         console.log('🚀 Загрузка чата...');
+        console.log('👤 Пользователь:', currentUserName, 'ID:', currentUserId);
         
-        // 1. Пытаемся получить данные из скрытых полей (от сервера)
-        const serverUserId = document.getElementById('currentUserId').textContent;
-        const serverUserName = document.getElementById('currentUserName').textContent;
-        
-        if (serverUserId && serverUserName && serverUserId !== '0') {
-            console.log('✅ Данные получены от сервера:', serverUserName);
-            currentUserId = parseInt(serverUserId);
-            currentUserName = serverUserName;
-            isAuthenticated = true;
-            
-            // Подключаем WebSocket
-            connectWebSocket();
-            
-            // Загружаем предпросмотры чатов
-            setTimeout(loadChatPreviews, 500);
-        } else {
-            // 2. Если сервер не передал данные, проверяем токен через API
-            console.log('⚠️ Данные не получены от сервера, проверяем через API...');
-            await verifyAndLoadUser();
+        // Проверяем, что пользователь загружен
+        if (!currentUserId || currentUserId === 0) {
+            console.error('❌ Пользователь не авторизован');
+            alert('Ошибка авторизации. Пожалуйста, войдите снова.');
+            window.location.href = '/login';
+            return;
         }
+        
+        console.log('✅ Пользователь авторизован');
+        
+        // Подключаем WebSocket
+        connectWebSocket();
         
         // Назначаем обработчики выбора чата
         setupChatSelection();
+        
+        // Назначаем обработчики отправки сообщений
+        document.getElementById('sendButton').addEventListener('click', sendMessage);
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
     });
-    
-    // ========== ПРОВЕРКА АВТОРИЗАЦИИ ЧЕРЕЗ API ==========
-    async function verifyAndLoadUser() {
-        try {
-            // Пробуем получить токен из разных источников
-            let token = localStorage.getItem('token');
-            if (!token) {
-                token = getCookie('token');
-            }
-            
-            if (!token) {
-                throw new Error('Токен не найден');
-            }
-            
-            console.log('🔑 Проверяем токен через API...');
-            
-            // Проверяем токен через эндпоинт users/me
-            const response = await fetch('/api/users/me', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error('Токен недействителен');
-            }
-            
-            const userData = await response.json();
-            console.log('✅ Пользователь авторизован через API:', userData.username);
-            
-            // Обновляем данные на странице
-            currentUserId = userData.id;
-            currentUserName = userData.username;
-            isAuthenticated = true;
-            
-            document.getElementById('currentUserId').textContent = userData.id;
-            document.getElementById('currentUserName').textContent = userData.username;
-            document.getElementById('currentUserDisplay').textContent = userData.username;
-            
-            // Обновляем список пользователей
-            await loadUsersList();
-            
-            // Подключаем WebSocket
-            connectWebSocket();
-            
-            // Загружаем предпросмотры
-            setTimeout(loadChatPreviews, 500);
-            
-        } catch (error) {
-            console.error('❌ Ошибка авторизации:', error);
-            alert('Ошибка авторизации. Пожалуйста, войдите снова.');
-            window.location.href = '/login';
-        }
-    }
-    
-    // ========== ЗАГРУЗКА СПИСКА ПОЛЬЗОВАТЕЛЕЙ ==========
-    async function loadUsersList() {
-        try {
-            const token = getToken();
-            if (!token) return;
-            
-            const response = await fetch('/api/users/', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            
-            if (response.ok) {
-                const users = await response.json();
-                updateUsersList(users);
-            }
-        } catch (error) {
-            console.error('Ошибка загрузки пользователей:', error);
-        }
-    }
-    
-    function updateUsersList(users) {
-        const usersList = document.getElementById('usersList');
-        
-        // Если пользователи уже есть от сервера - не перезаписываем
-        if (usersList.children.length > 0 && currentUserId) return;
-        
-        usersList.innerHTML = '';
-        
-        users.forEach(user => {
-            if (user.id === currentUserId) return; // Пропускаем себя
-            
-            const div = document.createElement('div');
-            div.className = 'chat-item';
-            div.dataset.userId = user.id;
-            div.dataset.userName = user.username;
-            div.style.padding = '12px 15px';
-            div.style.borderBottom = '1px solid #f0f0f0';
-            div.style.cursor = 'pointer';
-            div.style.display = 'flex';
-            div.style.alignItems = 'center';
-            
-            div.innerHTML = `
-                <div style="width: 40px; height: 40px; background: #007bff; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-weight: bold;">
-                    ${user.username.charAt(0).toUpperCase()}
-                </div>
-                <div style="flex: 1;">
-                    <strong>${user.username}</strong>
-                    <div class="chat-preview" style="font-size: 12px; color: #666;">Начните общение</div>
-                </div>
-            `;
-            
-            // Назначаем обработчик
-            div.addEventListener('click', function() {
-                selectUser(user.id, user.username);
-            });
-            
-            // Ховер-эффекты
-            div.addEventListener('mouseover', function() {
-                if (!this.classList.contains('selected')) {
-                    this.style.background = '#f5f5f5';
-                }
-            });
-            
-            div.addEventListener('mouseout', function() {
-                if (!this.classList.contains('selected')) {
-                    this.style.background = 'white';
-                }
-            });
-            
-            usersList.appendChild(div);
-        });
-    }
-    
-    // ========== НАСТРОЙКА ВЫБОРА ЧАТОВ ==========
-    function setupChatSelection() {
-        // Для уже существующих элементов (от сервера)
-        document.querySelectorAll('.chat-item').forEach(item => {
-            item.addEventListener('click', function() {
-                const userId = parseInt(this.dataset.userId);
-                const userName = this.dataset.userName;
-                selectUser(userId, userName);
-            });
-        });
-    }
-    
-    // ========== ВЫБОР ПОЛЬЗОВАТЕЛЯ ДЛЯ ЧАТА ==========
-    function selectUser(userId, userName) {
-        if (!isAuthenticated) {
-            alert('Сначала войдите в систему');
-            return;
-        }
-        
-        selectedUserId = userId;
-        selectedUserName = userName;
-        
-        // Подсветка выбранного чата
-        document.querySelectorAll('.chat-item').forEach(i => {
-            i.classList.remove('selected');
-            i.style.background = 'white';
-            i.style.borderLeft = 'none';
-        });
-        
-        const selectedItem = document.querySelector(`.chat-item[data-user-id="${userId}"]`);
-        if (selectedItem) {
-            selectedItem.classList.add('selected');
-            selectedItem.style.background = '#e3f2fd';
-            selectedItem.style.borderLeft = '3px solid #007bff';
-        }
-        
-        // Показываем заголовок чата
-        document.getElementById('chatHeader').style.display = 'block';
-        document.getElementById('currentChatUser').textContent = selectedUserName;
-        document.getElementById('chatAvatar').textContent = selectedUserName.charAt(0).toUpperCase();
-        
-        // Скрываем заглушку, показываем сообщения
-        document.getElementById('noChatSelected').style.display = 'none';
-        document.getElementById('messages').style.display = 'block';
-        document.getElementById('messageForm').style.display = 'block';
-        
-        // Загружаем историю сообщений
-        loadChatHistory(selectedUserId);
-        
-        // Активируем поле ввода
-        document.getElementById('messageInput').disabled = false;
-        document.getElementById('sendButton').disabled = false;
-        document.getElementById('messageInput').focus();
-    }
     
     // ========== WEBSOCKET ==========
     function connectWebSocket() {
-        if (!currentUserId) {
-            console.error('❌ Не могу подключить WebSocket: ID пользователя не определен');
-            return;
-        }
-        
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws/${currentUserId}`;
         
@@ -371,14 +184,61 @@
         };
     }
     
+    // ========== НАСТРОЙКА ВЫБОРА ЧАТОВ ==========
+    function setupChatSelection() {
+        document.querySelectorAll('.chat-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const userId = parseInt(this.dataset.userId);
+                const userName = this.dataset.userName;
+                selectUser(userId, userName);
+            });
+        });
+    }
+    
+    // ========== ВЫБОР ПОЛЬЗОВАТЕЛЯ ДЛЯ ЧАТА ==========
+    function selectUser(userId, userName) {
+        selectedUserId = userId;
+        selectedUserName = userName;
+        
+        // Подсветка выбранного чата
+        document.querySelectorAll('.chat-item').forEach(i => {
+            i.classList.remove('selected');
+            i.style.background = 'white';
+            i.style.borderLeft = 'none';
+        });
+        
+        const selectedItem = document.querySelector(`.chat-item[data-user-id="${userId}"]`);
+        if (selectedItem) {
+            selectedItem.classList.add('selected');
+            selectedItem.style.background = '#e3f2fd';
+            selectedItem.style.borderLeft = '3px solid #007bff';
+        }
+        
+        // Показываем заголовок чата
+        document.getElementById('chatHeader').style.display = 'block';
+        document.getElementById('currentChatUser').textContent = selectedUserName;
+        document.getElementById('chatAvatar').textContent = selectedUserName.charAt(0).toUpperCase();
+        
+        // Скрываем заглушку, показываем сообщения
+        document.getElementById('noChatSelected').style.display = 'none';
+        document.getElementById('messages').style.display = 'block';
+        document.getElementById('messageForm').style.display = 'block';
+        
+        // Загружаем историю сообщений
+        loadChatHistory(selectedUserId);
+        
+        // Активируем поле ввода
+        document.getElementById('messageInput').disabled = false;
+        document.getElementById('sendButton').disabled = false;
+        document.getElementById('messageInput').focus();
+    }
+    
     // ========== ОСНОВНЫЕ ФУНКЦИИ ==========
     function getChatId(user1, user2) {
         return [user1, user2].sort((a, b) => a - b).join('_');
     }
     
     async function loadChatHistory(otherUserId) {
-        if (!otherUserId) return;
-        
         const chatId = getChatId(currentUserId, otherUserId);
         
         // Очищаем текущие сообщения
@@ -392,17 +252,7 @@
         
         // Загружаем с сервера
         try {
-            const token = getToken();
-            if (!token) {
-                console.error('Токен не найден');
-                return;
-            }
-            
-            const response = await fetch(`/api/messages/with/${otherUserId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            const response = await fetch(`/api/messages/with/${otherUserId}`);
             
             if (response.ok) {
                 const messages = await response.json();
@@ -467,39 +317,10 @@
         messagesDiv.appendChild(messageDiv);
     }
     
-    async function loadChatPreviews() {
-        try {
-            const token = getToken();
-            if (!token) return;
-            
-            const response = await fetch('/api/messages/', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            
-            if (response.ok) {
-                const messages = await response.json();
-                
-                // Группируем сообщения по чатам
-                messages.forEach(msg => {
-                    const chatId = getChatId(msg.sender_id, msg.receiver_id);
-                    const otherUserId = msg.sender_id === currentUserId ? msg.receiver_id : msg.sender_id;
-                    
-                    // Обновляем предпросмотр
-                    updateChatPreview(chatId, msg);
-                });
-            }
-        } catch (error) {
-            console.error('Ошибка загрузки предпросмотров:', error);
-        }
-    }
-    
     function updateChatPreview(chatId, lastMessage) {
         const [user1, user2] = chatId.split('_').map(Number);
         const otherUserId = user1 === currentUserId ? user2 : user1;
         
-        // Находим элемент чата
         const chatItem = document.querySelector(`.chat-item[data-user-id="${otherUserId}"]`);
         if (chatItem) {
             const previewDiv = chatItem.querySelector('.chat-preview');
@@ -515,21 +336,7 @@
         }
     }
     
-    // ========== ОТПРАВКА СООБЩЕНИЙ ==========
-    document.getElementById('sendButton').addEventListener('click', sendMessage);
-    document.getElementById('messageInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-    
     function sendMessage() {
-        if (!isAuthenticated) {
-            alert('Сначала войдите в систему');
-            return;
-        }
-        
         const input = document.getElementById('messageInput');
         const message = input.value.trim();
         
@@ -553,7 +360,7 @@
         
         ws.send(JSON.stringify(messageData));
         
-        // Сразу показываем сообщение локально (будет дублироваться при получении от сервера)
+        // Сразу показываем сообщение локально
         const tempMessage = {
             id: Date.now(),
             content: message,
@@ -574,25 +381,6 @@
     function scrollToBottom() {
         const messagesDiv = document.getElementById('messages');
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-    
-    function getToken() {
-        // Пробуем получить из localStorage
-        let token = localStorage.getItem('token');
-        
-        // Если нет в localStorage, пробуем из куки
-        if (!token) {
-            token = getCookie('token');
-        }
-        
-        return token;
-    }
-    
-    function getCookie(name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
-        return null;
     }
     
     function escapeHtml(text) {
