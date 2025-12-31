@@ -350,61 +350,52 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Обработка отправки формы входа
-    if (loginForm) {
-        loginForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
+    // Обработка отправки формы входа
+if (loginForm) {
+    loginForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        
+        const formData = new URLSearchParams();
+        formData.append('username', username);
+        formData.append('password', password);
+        
+        const submitBtn = loginForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
+        submitBtn.disabled = true;
+        
+        try {
+            const response = await fetch('/api/token', {
+                method: 'POST',
+                body: formData
+            });
             
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            
-            const formData = new URLSearchParams();
-            formData.append('username', username);
-            formData.append('password', password);
-            
-            const submitBtn = loginForm.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
-            submitBtn.disabled = true;
-            if (loginError) {
-                loginError.style.display = 'none';
-            }
-            
-            try {
-                // Логин - путь: /api/token
-                const response = await fetch('/api/token', {
-                    method: 'POST',
-                    body: formData
-                });
+            if (response.ok) {
+                const tokenData = await response.json();
                 
-                if (response.ok) {
-                    const tokenData = await response.json();
-                    // Сохраняем токен в localStorage
-                    localStorage.setItem('token', tokenData.access_token);
-                    // Сохраняем токен в куки для FastAPI - ВАЖНО!
-                    document.cookie = `token=${tokenData.access_token}; path=/; max-age=86400; SameSite=Lax`;
-                    
-                    // Редирект в чат
-                    window.location.href = '/chat';
-                } else {
-                    const errorData = await response.json();
-                    if (loginError) {
-                        loginError.textContent = errorData.detail || 'Ошибка входа';
-                        loginError.style.display = 'block';
-                    }
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.disabled = false;
-                }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                if (loginError) {
-                    loginError.textContent = 'Ошибка соединения с сервером';
-                    loginError.style.display = 'block';
-                }
+                // ВАЖНО: Сохраняем токен в localStorage И в куки
+                localStorage.setItem('token', tokenData.access_token);
+                document.cookie = `token=${tokenData.access_token}; path=/; max-age=86400; SameSite=Lax`;
+                
+                // Редирект в чат
+                window.location.href = '/chat';
+            } else {
+                const errorData = await response.json();
+                alert(`Ошибка входа: ${errorData.detail || 'Неизвестная ошибка'}`);
                 submitBtn.innerHTML = originalText;
                 submitBtn.disabled = false;
             }
-        });
-    }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            alert('Ошибка соединения с сервером');
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    });
+}
     
     // Инициализация при загрузке
     if (passwordLength) {
