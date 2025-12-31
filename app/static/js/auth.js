@@ -352,6 +352,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Обработка отправки формы входа
     // Обработка отправки формы входа
 // Обработка отправки формы входа
+// Обработка отправки формы входа
 if (loginForm) {
     loginForm.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -377,17 +378,38 @@ if (loginForm) {
             if (response.ok) {
                 const tokenData = await response.json();
                 
-                // 1. Сохраняем в localStorage (для JavaScript)
+                // Сохраняем токен в localStorage
                 localStorage.setItem('token', tokenData.access_token);
                 
-                // 2. Сохраняем в куки (для FastAPI) - ВАЖНО!
-                document.cookie = `token=${tokenData.access_token}; path=/; SameSite=Lax`;
+                // Устанавливаем куки с токеном
+                // Важно указать max-age и path
+                document.cookie = `token=${tokenData.access_token}; path=/; max-age=${60*60*24*7}; SameSite=Lax`;
                 
-                // 3. Ждем немного чтобы куки установились
-                await new Promise(resolve => setTimeout(resolve, 50));
+                // Добавляем токен в localStorage для использования в запросах
+                localStorage.setItem('auth_token', tokenData.access_token);
                 
-                // 4. Редирект в чат
-                window.location.href = '/chat';
+                // Проверяем авторизацию перед переходом
+                try {
+                    // Делаем тестовый запрос с токеном
+                    const testResponse = await fetch('/api/users/me', {
+                        headers: {
+                            'Authorization': `Bearer ${tokenData.access_token}`
+                        }
+                    });
+                    
+                    if (testResponse.ok) {
+                        // Успешно - переходим в чат
+                        window.location.href = '/chat';
+                    } else {
+                        throw new Error('Ошибка авторизации');
+                    }
+                } catch (testError) {
+                    console.error('Ошибка проверки авторизации:', testError);
+                    alert('Ошибка авторизации. Попробуйте еще раз.');
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+                
             } else {
                 const errorData = await response.json();
                 alert(`Ошибка входа: ${errorData.detail || 'Неизвестная ошибка'}`);

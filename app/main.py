@@ -24,16 +24,19 @@ app = FastAPI(
 )
 
 # Middleware: добавляем токен из куки в заголовки Authorization
+
 @app.middleware("http")
 async def add_token_to_headers(request: Request, call_next):
     # Если нет заголовка Authorization, берем токен из куки
-    if "authorization" not in request.headers:
+    auth_header = request.headers.get("authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
         token = request.cookies.get("token")
         if token:
             # Создаем новые заголовки с Authorization
-            headers = dict(request.headers)
-            headers["authorization"] = f"Bearer {token}"
-            request._headers = headers
+            new_headers = dict(request.headers)
+            new_headers["authorization"] = f"Bearer {token}"
+            request._headers = new_headers
+            print(f"✅ Middleware добавил токен из куки для {request.url.path}")
     
     response = await call_next(request)
     return response

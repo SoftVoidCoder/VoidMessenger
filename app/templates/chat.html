@@ -12,6 +12,7 @@
             <h3 style="margin: 0;">Чаты</h3>
             <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
                 Вы: <strong>{{ current_user.username }}</strong>
+                <a href="/logout" style="margin-left: 10px; color: #666; font-size: 12px;">(Выйти)</a>
             </p>
         </div>
         
@@ -27,9 +28,9 @@
                 <div style="width: 40px; height: 40px; background: #007bff; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px; font-weight: bold;">
                     {{ user.username|first|upper }}
                 </div>
-                <div>
+                <div style="flex: 1;">
                     <strong>{{ user.username }}</strong>
-                    <div style="font-size: 12px; color: #666;">Нажмите для чата</div>
+                    <div class="chat-preview" style="font-size: 12px; color: #666;">Начните общение</div>
                 </div>
             </div>
             {% endfor %}
@@ -63,7 +64,7 @@
             </div>
             
             <!-- Здесь будут появляться сообщения -->
-            <div id="messages" style="display: none;"></div>
+            <div id="messages" style="display: none; flex: 1; overflow-y: auto;"></div>
         </div>
         
         <!-- Поле ввода (скрыто пока не выбран чат) -->
@@ -97,38 +98,86 @@
     // Хранилище сообщений по чатам
     let chatMessages = {};
     
+    // Проверка авторизации при загрузке
+    document.addEventListener('DOMContentLoaded', async function() {
+        // Проверяем есть ли токен
+        const token = getToken();
+        
+        if (!token) {
+            // Если нет токена, редирект на логин
+            alert('Вы не авторизованы. Перенаправление на страницу входа...');
+            window.location.href = '/login';
+            return;
+        }
+        
+        // Проверяем валидность токена
+        try {
+            const response = await fetch('/api/users/me', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Не авторизован');
+            }
+            
+            // Успешно авторизованы - подключаем WebSocket
+            console.log('✅ Пользователь авторизован:', currentUserName);
+            connectWebSocket();
+            
+        } catch (error) {
+            console.error('❌ Ошибка авторизации:', error);
+            alert('Ошибка авторизации. Пожалуйста, войдите снова.');
+            window.location.href = '/login';
+        }
+    });
+    
     // Подключение к WebSocket
     function connectWebSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws/${currentUserId}`;
         
+        console.log('🔗 Подключение к WebSocket:', wsUrl);
         ws = new WebSocket(wsUrl);
         
         ws.onopen = function() {
             console.log('✅ WebSocket подключен');
+            // Загружаем предпросмотр чатов после подключения
+            loadChatPreviews();
         };
         
         ws.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            console.log('📩 Получено сообщение:', data);
-            
-            // Определяем ID чата (всегда меньший ID пользователя первым)
-            let chatId = getChatId(data.sender_id, data.receiver_id);
-            
-            // Сохраняем сообщение
-            if (!chatMessages[chatId]) {
-                chatMessages[chatId] = [];
+            try {
+                const data = JSON.parse(event.data);
+                console.log('📩 Получено сообщение:', data);
+                
+                if (data.error) {
+                    console.error('Ошибка WebSocket:', data.error);
+                    return;
+                }
+                
+                // Определяем ID чата (всегда меньший ID пользователя первым)
+                let chatId = getChatId(data.sender_id, data.receiver_id);
+                
+                // Сохраняем сообщение
+                if (!chatMessages[chatId]) {
+                    chatMessages[chatId] = [];
+                }
+                chatMessages[chatId].push(data);
+                
+                // Если это активный чат - показываем сообщение
+                if (selectedUserId && (selectedUserId === data.sender_id || selectedUserId === data.receiver_id)) {
+                    displayMessage(data);
+                    scrollToBottom();
+                }
+                
+                // Обновляем последнее сообщение в списке чатов
+                updateChatPreview(chatId, data);
+                
+            } catch (error) {
+                console.error('❌ Ошибка обработки сообщения:', error);
             }
-            chatMessages[chatId].push(data);
-            
-            // Если это активный чат - показываем сообщение
-            if (selectedUserId === data.sender_id || selectedUserId === data.receiver_id) {
-                displayMessage(data);
-                scrollToBottom();
-            }
-            
-            // Обновляем последнее сообщение в списке чатов
-            updateChatPreview(chatId, data);
         };
         
         ws.onerror = function(error) {
@@ -136,8 +185,8 @@
         };
         
         ws.onclose = function() {
-            console.log('🔌 WebSocket отключен, переподключение через 3 секунды...');
-            setTimeout(connectWebSocket, 3000);
+            console.log('🔌 WebSocket отключен, переподключение через 5 секунд...');
+            setTimeout(connectWebSocket, 5000);
         };
     }
     
@@ -155,8 +204,10 @@
             // Подсветка выбранного чата
             document.querySelectorAll('.chat-item').forEach(i => {
                 i.style.background = 'white';
+                i.style.borderLeft = 'none';
             });
             this.style.background = '#e3f2fd';
+            this.style.borderLeft = '3px solid #007bff';
             
             // Показываем заголовок чата
             document.getElementById('chatHeader').style.display = 'block';
@@ -182,6 +233,9 @@
     async function loadChatHistory(otherUserId) {
         const chatId = getChatId(currentUserId, otherUserId);
         
+        // Очищаем текущие сообщения
+        document.getElementById('messages').innerHTML = '';
+        
         // Если уже загружены - показываем
         if (chatMessages[chatId] && chatMessages[chatId].length > 0) {
             displayChatHistory(chatMessages[chatId]);
@@ -190,7 +244,12 @@
         
         // Загружаем с сервера
         try {
-            const token = localStorage.getItem('token') || getCookie('token');
+            const token = getToken();
+            if (!token) {
+                console.error('Токен не найден');
+                return;
+            }
+            
             const response = await fetch(`/api/messages/with/${otherUserId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -202,6 +261,8 @@
                 chatMessages[chatId] = messages;
                 displayChatHistory(messages);
                 scrollToBottom();
+            } else {
+                console.error('Ошибка загрузки истории:', response.status);
             }
         } catch (error) {
             console.error('Ошибка загрузки истории:', error);
@@ -211,7 +272,17 @@
     // Отображение истории чата
     function displayChatHistory(messages) {
         const messagesDiv = document.getElementById('messages');
-        messagesDiv.innerHTML = '';
+        
+        if (messages.length === 0) {
+            messagesDiv.innerHTML = `
+                <div style="text-align: center; color: #666; margin: auto;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">✉️</div>
+                    <p>Начните общение с ${selectedUserName}</p>
+                    <p style="font-size: 12px;">Сообщения появятся здесь</p>
+                </div>
+            `;
+            return;
+        }
         
         messages.forEach(msg => {
             displayMessage(msg);
@@ -237,15 +308,44 @@
                            border-radius: ${isOwn ? '15px 15px 0 15px' : '15px 15px 15px 0'};
                            border: ${isOwn ? 'none' : '1px solid #ddd'};
                            word-wrap: break-word;">
-                    ${msg.content}
+                    ${escapeHtml(msg.content)}
                 </div>
                 <div style="font-size: 11px; color: #666; text-align: ${isOwn ? 'right' : 'left'}; margin-top: 5px;">
-                    ${new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    ${formatTime(msg.timestamp)}
                 </div>
             </div>
         `;
         
         messagesDiv.appendChild(messageDiv);
+    }
+    
+    // Загрузка предпросмотров чатов
+    async function loadChatPreviews() {
+        try {
+            const token = getToken();
+            if (!token) return;
+            
+            const response = await fetch('/api/messages/', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                const messages = await response.json();
+                
+                // Группируем сообщения по чатам
+                messages.forEach(msg => {
+                    const chatId = getChatId(msg.sender_id, msg.receiver_id);
+                    const otherUserId = msg.sender_id === currentUserId ? msg.receiver_id : msg.sender_id;
+                    
+                    // Обновляем предпросмотр
+                    updateChatPreview(chatId, msg);
+                });
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки предпросмотров:', error);
+        }
     }
     
     // Обновление превью чата в списке
@@ -256,34 +356,57 @@
         // Находим элемент чата
         const chatItem = document.querySelector(`.chat-item[data-user-id="${otherUserId}"]`);
         if (chatItem) {
-            const previewDiv = chatItem.querySelector('.chat-preview') || (() => {
-                const div = document.createElement('div');
-                div.className = 'chat-preview';
-                div.style.fontSize = '12px';
-                div.style.color = '#666';
-                chatItem.querySelector('div').appendChild(div);
-                return div;
-            })();
-            
-            const preview = previewDiv;
-            preview.textContent = lastMessage.content.length > 30 
-                ? lastMessage.content.substring(0, 30) + '...' 
-                : lastMessage.content;
-            preview.style.color = '#333';
+            const previewDiv = chatItem.querySelector('.chat-preview');
+            if (previewDiv) {
+                const content = lastMessage.content.length > 30 
+                    ? lastMessage.content.substring(0, 30) + '...' 
+                    : lastMessage.content;
+                previewDiv.textContent = content;
+                previewDiv.style.color = '#333';
+                previewDiv.style.fontWeight = '500';
+                
+                // Добавляем время
+                const timeSpan = previewDiv.querySelector('.last-time') || (() => {
+                    const span = document.createElement('span');
+                    span.className = 'last-time';
+                    span.style.float = 'right';
+                    span.style.fontSize = '10px';
+                    span.style.color = '#888';
+                    previewDiv.appendChild(span);
+                    return span;
+                })();
+                
+                timeSpan.textContent = formatTimeShort(lastMessage.timestamp);
+            }
         }
     }
     
     // Отправка сообщения
     document.getElementById('sendButton').addEventListener('click', sendMessage);
     document.getElementById('messageInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') sendMessage();
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
     });
     
     function sendMessage() {
         const input = document.getElementById('messageInput');
         const message = input.value.trim();
         
-        if (!message || !selectedUserId || !ws) return;
+        if (!message || !selectedUserId || !ws || ws.readyState !== WebSocket.OPEN) {
+            console.error('Нельзя отправить сообщение:', {
+                message: message,
+                selectedUserId: selectedUserId,
+                wsReady: ws ? ws.readyState : 'no ws'
+            });
+            
+            if (ws.readyState !== WebSocket.OPEN) {
+                alert('Соединение потеряно. Переподключаемся...');
+                connectWebSocket();
+            }
+            return;
+        }
         
         const messageData = {
             receiver_id: selectedUserId,
@@ -303,17 +426,59 @@
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
     
-    // Получение cookie (для токена)
+    // Получение токена
+    function getToken() {
+        // Пробуем получить из localStorage
+        let token = localStorage.getItem('token');
+        
+        // Если нет в localStorage, пробуем из куки
+        if (!token) {
+            token = getCookie('token');
+            if (token) {
+                localStorage.setItem('token', token);
+            }
+        }
+        
+        return token;
+    }
+    
+    // Получение cookie
     function getCookie(name) {
         const value = `; ${document.cookie}`;
         const parts = value.split(`; ${name}=`);
         if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
     }
     
-    // Запуск при загрузке
-    document.addEventListener('DOMContentLoaded', function() {
-        connectWebSocket();
-    });
+    // Экранирование HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Форматирование времени
+    function formatTime(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    }
+    
+    function formatTimeShort(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = now - date;
+        
+        if (diff < 24 * 60 * 60 * 1000) {
+            // Сегодня
+            return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        } else if (diff < 7 * 24 * 60 * 60 * 1000) {
+            // На этой неделе
+            return date.toLocaleDateString([], {weekday: 'short'});
+        } else {
+            // Ранее
+            return date.toLocaleDateString([], {month: 'short', day: 'numeric'});
+        }
+    }
 </script>
 
 <style>
@@ -333,6 +498,15 @@
     
     #messagesContainer {
         scroll-behavior: smooth;
+    }
+    
+    .chat-item:hover {
+        background-color: #f5f5f5 !important;
+    }
+    
+    .chat-item.selected {
+        background-color: #e3f2fd !important;
+        border-left: 3px solid #007bff !important;
     }
 </style>
 {% endblock %}
