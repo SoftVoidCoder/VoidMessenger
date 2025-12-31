@@ -14,7 +14,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         models.User.username == user.username
     ).first()
     if db_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
+        raise HTTPException(status_code=400, detail="Имя пользователя уже занято")
     
     # Проверяем email, если он указан
     if user.email:
@@ -22,10 +22,14 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
             models.User.email == user.email
         ).first()
         if db_user_email:
-            raise HTTPException(status_code=400, detail="Email already registered")
+            raise HTTPException(status_code=400, detail="Email уже зарегистрирован")
     
     # Создаем нового пользователя
-    hashed_password = auth.get_password_hash(user.password)
+    try:
+        hashed_password = auth.get_password_hash(user.password)
+    except HTTPException as e:
+        raise e
+    
     db_user = models.User(
         username=user.username,
         email=user.email,
@@ -47,7 +51,7 @@ async def login_for_access_token(
     if not user or not auth.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Неверное имя пользователя или пароль",
             headers={"WWW-Authenticate": "Bearer"},
         )
     

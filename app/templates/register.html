@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Регистрация - My Messenger{% endblock %}
+{% block title %}Регистрация - Void Messenger{% endblock %}
 
 {% block content %}
 <div class="auth-container">
@@ -16,8 +16,10 @@
                     <i class="fas fa-user"></i> Имя пользователя
                 </label>
                 <input type="text" id="username" name="username" required 
-                       placeholder="Введите имя пользователя">
-                <div class="form-hint">От 3 до 20 символов</div>
+                       placeholder="Введите имя пользователя (3-50 символов)"
+                       minlength="3" maxlength="50">
+                <div class="form-hint">От 3 до 50 символов</div>
+                <div id="usernameError" class="error-message"></div>
             </div>
             
             <div class="form-group">
@@ -25,28 +27,46 @@
                     <i class="fas fa-envelope"></i> Email (необязательно)
                 </label>
                 <input type="email" id="email" name="email" 
-                       placeholder="example@mail.com">
+                       placeholder="example@mail.com"
+                       maxlength="100">
+                <div class="form-hint">Для восстановления пароля</div>
             </div>
             
             <div class="form-group">
                 <label for="password">
-                    <i class="fas fa-lock"></i> Пароль
+                    <i class="fas fa-lock"></i> Пароль (6-32 символа)
                 </label>
-                <input type="password" id="password" name="password" required 
-                       placeholder="Введите пароль">
-                <div class="password-strength">
-                    <div class="strength-bar" id="strengthBar"></div>
-                    <span id="strengthText">Надежность пароля</span>
+                <div class="password-input-container">
+                    <input type="password" id="password" name="password" required 
+                           placeholder="Введите пароль (6-32 символа)"
+                           minlength="6" maxlength="32">
+                    <button type="button" id="togglePassword" class="toggle-password-btn">
+                        <i id="password-icon" class="fas fa-eye"></i>
+                    </button>
                 </div>
+                <div class="form-hint">
+                    <span id="passwordLength">Длина: 0/32 символов</span>
+                    <div id="passwordStrength">
+                        <div class="strength-bar" id="strengthBar"></div>
+                        <span id="strengthText">Надежность пароля</span>
+                    </div>
+                </div>
+                <div id="passwordError" class="error-message"></div>
             </div>
             
             <div class="form-group">
                 <label for="confirmPassword">
                     <i class="fas fa-lock"></i> Подтвердите пароль
                 </label>
-                <input type="password" id="confirmPassword" name="confirmPassword" required 
-                       placeholder="Повторите пароль">
-                <div class="password-match" id="passwordMatch"></div>
+                <div class="password-input-container">
+                    <input type="password" id="confirmPassword" name="confirmPassword" required 
+                           placeholder="Повторите пароль"
+                           minlength="6" maxlength="32">
+                    <button type="button" id="toggleConfirmPassword" class="toggle-password-btn">
+                        <i id="confirmPassword-icon" class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div id="passwordMatch" class="form-hint"></div>
             </div>
             
             <div class="form-group">
@@ -57,6 +77,7 @@
                         и <a href="#" class="link">политику конфиденциальности</a>
                     </label>
                 </div>
+                <div id="termsError" class="error-message"></div>
             </div>
             
             <button type="submit" class="btn btn-primary btn-block">
@@ -80,12 +101,19 @@
     <div class="auth-features">
         <h3>Преимущества регистрации:</h3>
         <ul>
-            <li><i class="fas fa-check"></i> Безопасное общение</li>
-            <li><i class="fas fa-check"></i> История сообщений</li>
+            <li><i class="fas fa-check"></i> Безопасное общение с шифрованием</li>
+            <li><i class="fas fa-check"></i> История всех сообщений</li>
             <li><i class="fas fa-check"></i> Мгновенные уведомления</li>
             <li><i class="fas fa-check"></i> Доступ с любого устройства</li>
+            <li><i class="fas fa-check"></i> Отправка файлов и изображений</li>
+            <li><i class="fas fa-check"></i> Групповые чаты</li>
             <li><i class="fas fa-check"></i> Полностью бесплатно</li>
         </ul>
+        
+        <div class="security-tip">
+            <h4><i class="fas fa-shield-alt"></i> Безопасность</h4>
+            <p>Ваши пароли защищены современным шифрованием bcrypt.</p>
+        </div>
     </div>
 </div>
 
