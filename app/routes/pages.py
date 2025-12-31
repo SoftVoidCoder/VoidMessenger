@@ -1,39 +1,17 @@
-from fastapi import APIRouter, Request, Depends, HTTPException, status, Cookie
+from fastapi import APIRouter, Request, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 import os
 
-# Импортируем get_db из database
 from app.database import get_db
+from app.auth import get_current_user
 
 router = APIRouter()
 
 # Настройка Jinja2
 templates_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
 templates = Jinja2Templates(directory=templates_dir)
-
-# Импортируем функции для работы с JWT
-from jose import jwt, JWTError
-from app.auth import SECRET_KEY, ALGORITHM
-
-def get_user_from_token(token: str, db: Session):
-    """Получаем пользователя из токена"""
-    try:
-        if not token:
-            return None
-        
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: int = int(payload.get("sub"))
-        if user_id is None:
-            return None
-        
-        from app import models
-        user = db.query(models.User).filter(models.User.id == user_id).first()
-        return user
-    except (JWTError, ValueError, Exception) as e:
-        print(f"❌ Ошибка декодирования токена: {e}")
-        return None
 
 @router.get("/", response_class=HTMLResponse)
 async def home_page(request: Request):
@@ -50,35 +28,48 @@ async def register_page(request: Request):
 @router.get("/chat", response_class=HTMLResponse)
 async def chat_page(
     request: Request,
-    token: str = Cookie(None),  # Получаем токен из куки
-    db: Session = Depends(get_db)  # Теперь get_db определен
+    db: Session = Depends(get_db)
 ):
-    print(f"🔑 Токен из куки: {token[:20] + '...' if token else 'None'}")
+    # Пробуем получить токен из заголовка Authorization
+    auth_header = request.headers.get("Authorization")
     
-    if not token:
-        print("❌ Нет токена в куки, редирект на логин")
-        return RedirectResponse(url="/login")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        # Если нет заголовка, просто отдаем шаблон - проверка будет на клиенте
+        return templates.TemplateResponse("chat.html", {
+            "request": request,
+            "current_user": None,
+            "users": []
+        })
     
-    # Получаем пользователя из токена
-    current_user = get_user_from_token(token, db)
+    # Если есть заголовок, пробуем авторизовать
+    try:
+        token = auth_header.replace("Bearer ", "")
+        from jose import jwt, JWTError
+        from app.auth import SECRET_KEY, ALGORITHM
+        
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = int(payload.get("sub"))
+        
+        from app import models
+        current_user = db.query(models.User).filter(models.User.id == user_id).first()
+        
+        if current_user:
+            users = db.query(models.User).filter(models.User.id != current_user.id).all()
+            
+            return templates.TemplateResponse("chat.html", {
+                "request": request,
+                "current_user": current_user,
+                "users": users
+            })
     
-    if not current_user:
-        print("❌ Невалидный токен, редирект на логин")
-        # Удаляем невалидную куку
-        response = RedirectResponse(url="/login")
-        response.delete_cookie("token")
-        return response
+    except Exception as e:
+        print(f"Ошибка авторизации: {e}")
     
-    print(f"✅ Пользователь авторизован: {current_user.username}")
-    
-    # Получаем список всех пользователей кроме текущего
-    from app import models
-    users = db.query(models.User).filter(models.User.id != current_user.id).all()
-    
+    # Если что-то пошло не так - отдаем пустой шаблон
     return templates.TemplateResponse("chat.html", {
         "request": request,
-        "current_user": current_user,
-        "users": users
+        "current_user": None,
+        "users": []
     })
 
 @router.get("/logout")

@@ -350,6 +350,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
  
+// Обработка отправки формы входа - ТЕЛЕГРАМ СТИЛЬ
 if (loginForm) {
     loginForm.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -369,32 +370,18 @@ if (loginForm) {
         try {
             const response = await fetch('/api/token', {
                 method: 'POST',
-                body: formData,
-                credentials: 'include'  // ВАЖНО: для работы с куки
+                body: formData
             });
             
             if (response.ok) {
                 const tokenData = await response.json();
-                console.log('✅ Токен получен:', tokenData.access_token.substring(0, 20) + '...');
+                console.log('✅ Токен получен');
                 
-                // 1. Сохраняем в localStorage (для JavaScript)
+                // ТОЛЬКО localStorage - как в Telegram Web
                 localStorage.setItem('token', tokenData.access_token);
                 
-                // 2. Устанавливаем куку С ПРАВИЛЬНЫМИ ПАРАМЕТРАМИ
-                // Важно: path=/ чтобы кука была доступна на всех страницах
-                // max-age=604800 = 7 дней
-                document.cookie = `token=${tokenData.access_token}; path=/; max-age=604800; SameSite=Lax`;
-                
-                console.log('🍪 Кука установлена');
-                
-                // 3. Ждем 100мс чтобы кука точно установилась
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                // 4. Проверяем что кука установилась
-                console.log('📋 Проверяем куки:', document.cookie.substring(0, 50) + '...');
-                
-                // 5. Переходим в чат
-                window.location.href = '/chat';
+                // Переходим в чат с токеном в URL (для первой загрузки)
+                window.location.href = `/chat?token=${encodeURIComponent(tokenData.access_token)}`;
                 
             } else {
                 const errorData = await response.json();

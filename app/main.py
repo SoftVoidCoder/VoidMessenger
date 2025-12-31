@@ -24,7 +24,22 @@ app = FastAPI(
 )
 
 # Middleware: добавляем токен из куки в заголовки Authorization
-
+@app.middleware("http")
+async def add_auth_header(request: Request, call_next):
+    # Если нет заголовка Authorization, проверяем есть ли токен в localStorage через query параметр
+    auth_header = request.headers.get("authorization")
+    
+    if not auth_header and request.url.path == "/chat":
+        # Проверяем query параметр
+        token = request.query_params.get("token")
+        if token:
+            # Добавляем в заголовки
+            new_headers = dict(request.headers)
+            new_headers["authorization"] = f"Bearer {token}"
+            request._headers = new_headers
+    
+    response = await call_next(request)
+    return response
 
 
 # Статические файлы
