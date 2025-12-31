@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Request, Depends, HTTPException, status, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Request, Depends, HTTPException, status, Form, WebSocket
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBearer
@@ -8,12 +8,9 @@ from datetime import timedelta
 import os
 from dotenv import load_dotenv
 
-from . import models, schemas, crud, auth, dependencies
+from . import models, schemas, crud, auth, dependencies, websocket
 from .database import engine, get_db
 import sys
-
-# Добавляем текущую директорию в путь для импортов
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Загружаем переменные окружения
 load_dotenv()
@@ -23,25 +20,23 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Telegram-like Messenger")
 
-# Получаем абсолютный путь к директории проекта
+# Настройка статических файлов и шаблонов
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 
-# Настройка статических файлов и шаблонов
 static_dir = os.path.join(PROJECT_ROOT, "app", "static")
 templates_dir = os.path.join(PROJECT_ROOT, "templates")
-
-print(f"Static directory: {static_dir}")
-print(f"Templates directory: {templates_dir}")
-
-# Проверяем существование директорий
-print(f"Static dir exists: {os.path.exists(static_dir)}")
-print(f"Templates dir exists: {os.path.exists(templates_dir)}")
 
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 templates = Jinja2Templates(directory=templates_dir)
 
 security = HTTPBearer()
+
+# WebSocket endpoint
+@app.websocket("/ws/{token}")
+async def websocket_connection(websocket: WebSocket, token: str):
+    db = next(get_db())
+    await websocket.websocket_endpoint(websocket, token, db)
 
 # Главная страница
 @app.get("/", response_class=HTMLResponse)
@@ -64,7 +59,6 @@ async def register(
     last_name: str = Form(None),
     db: Session = Depends(get_db)
 ):
-    # Проверяем, существует ли пользователь
     db_user = crud.get_user_by_email(db, email)
     if db_user:
         return templates.TemplateResponse(
@@ -79,7 +73,6 @@ async def register(
             {"request": request, "error": "Username already taken"}
         )
     
-    # Создаем пользователя
     user_create = schemas.UserCreate(
         username=username,
         email=email,
@@ -91,7 +84,6 @@ async def register(
     
     user = crud.create_user(db, user_create)
     
-    # Создаем токен и перенаправляем на страницу чатов
     access_token = auth.create_access_token(data={"sub": str(user.id)})
     response = RedirectResponse(url="/chats", status_code=status.HTTP_303_SEE_OTHER)
     response.set_cookie(key="access_token", value=access_token, httponly=True)
@@ -128,7 +120,7 @@ async def logout():
     response.delete_cookie(key="access_token")
     return response
 
-# Страница чатов (требует аутентификации)
+# Страница чатов
 @app.get("/chats", response_class=HTMLResponse)
 async def chats_page(
     request: Request,
@@ -136,14 +128,71 @@ async def chats_page(
     db: Session = Depends(get_db)
 ):
     users = crud.get_all_users(db)
+    chats = crud.get_user_chats(db, current_user.id)
+    
     return templates.TemplateResponse(
         "chats.html",
         {
             "request": request,
             "current_user": current_user,
-            "users": users
+            "users": users,
+            "chats": chats,
+            "access_token": request.cookies.get("access_token", "")
         }
     )
+
+# API для получения сообщений
+@app.get("/api/messages/{user_id}")
+async def get_messages(
+    user_id: int,
+    current_user: models.User = Depends(dependencies.get_current_user),
+    db: Session = Depends(get_db)
+):
+    messages = crud.get_messages_between_users(db, current_user.id, user_id)
+    
+    # Отмечаем сообщения как прочитанные
+    crud.mark_messages_as_read(db, user_id, current_user.id)
+    
+    return [
+        {
+            "id": msg.id,
+            "sender_id": msg.sender_id,
+            "receiver_id": msg.receiver_id,
+            "content": msg.content,
+            "is_read": msg.is_read,
+            "created_at": msg.created_at.isoformat(),
+            "sender_username": msg.sender.username,
+            "receiver_username": msg.receiver.username
+        }
+        for msg in messages
+    ]
+
+# API для отправки сообщения
+@app.post("/api/messages")
+async def send_message(
+    message: schemas.MessageCreate,
+    current_user: models.User = Depends(dependencies.get_current_user),
+    db: Session = Depends(get_db)
+):
+    db_message = crud.create_message(db, message, current_user.id)
+    
+    return {
+        "id": db_message.id,
+        "sender_id": db_message.sender_id,
+        "receiver_id": db_message.receiver_id,
+        "content": db_message.content,
+        "is_read": db_message.is_read,
+        "created_at": db_message.created_at.isoformat()
+    }
+
+# API для получения непрочитанных сообщений
+@app.get("/api/unread_count")
+async def get_unread_count(
+    current_user: models.User = Depends(dependencies.get_current_user),
+    db: Session = Depends(get_db)
+):
+    total = crud.get_unread_messages_count(db, current_user.id)
+    return {"total": total}
 
 # API endpoint для получения текущего пользователя
 @app.get("/api/me")

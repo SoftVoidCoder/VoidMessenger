@@ -740,3 +740,62 @@ body {
 .icon-typing {
     color: var(--tg-typing);
 }
+
+
+/* Бейджи непрочитанных сообщений */
+.unread-badge {
+    background: var(--tg-red);
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    position: absolute;
+    top: 8px;
+    right: 8px;
+}
+
+.chat-status {
+    position: relative;
+}
+
+/* Анимации для чата */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease;
+}
+
+/* WebSocket статус */
+.ws-status {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    z-index: 1000;
+}
+
+.ws-connected {
+    background-color: var(--tg-green);
+    box-shadow: 0 0 0 2px rgba(50, 169, 85, 0.3);
+}
+
+.ws-disconnected {
+    background-color: var(--tg-red);
+    box-shadow: 0 0 0 2px rgba(255, 59, 48, 0.3);
+}

@@ -37,21 +37,30 @@
         </div>
         
         <div class="chats-list">
-            <div class="chats-title">Контакты</div>
+            <div class="chats-title">Чаты</div>
             
-            {% for user in users %}
-            {% if user.id != current_user.id %}
-            <div class="chat-item" data-username="@{{ user.username }}">
+            {% for chat in chats %}
+            {% if chat.user_id != current_user.id %}
+            <div class="chat-item" 
+                 data-user-id="{{ chat.user_id }}"
+                 data-username="@{{ chat.username }}">
                 <div class="chat-avatar">
-                    {{ user.username[0]|upper }}
+                    {{ chat.username[0]|upper }}
                 </div>
                 <div class="chat-info">
-                    <h4>{{ user.get_full_name() }}</h4>
-                    <p>@{{ user.username }}</p>
+                    <h4>{{ chat.full_name }}</h4>
+                    <p>
+                        {% if chat.last_message %}
+                            {{ chat.last_message|truncate(30) }}
+                        {% else %}
+                            Нет сообщений
+                        {% endif %}
+                    </p>
                 </div>
                 <div class="chat-status">
-                    <span class="status-indicator {% if not user.is_active %}offline{% endif %}" 
-                          title="{% if user.is_active %}Онлайн{% else %}Офлайн{% endif %}"></span>
+                    {% if chat.unread_count > 0 %}
+                    <span class="unread-badge">{{ chat.unread_count }}</span>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
@@ -61,44 +70,77 @@
     
     <!-- Основной чат -->
     <div class="chat-area">
-        <div class="empty-chat">
+        <div class="empty-chat" id="empty-chat">
             <div class="empty-chat-icon">
                 <i class="fab fa-telegram"></i>
             </div>
             <h2>Telegram Web</h2>
             <p>Выберите чат из списка слева, чтобы начать общение</p>
-            <p class="hint">Функциональность сообщений будет добавлена в ближайшее время</p>
+            <p class="hint">Отправляйте сообщения в реальном времени</p>
             
             <div class="user-stats">
                 <div class="stat-card">
                     <i class="fas fa-users"></i>
                     <h3>{{ users|length - 1 }}</h3>
-                    <p>Доступных контактов</p>
+                    <p>Всего пользователей</p>
                 </div>
                 <div class="stat-card">
-                    <i class="fas fa-user-circle"></i>
-                    <h3>@{{ current_user.username }}</h3>
-                    <p>Ваш профиль</p>
+                    <i class="fas fa-comments"></i>
+                    <h3>{{ chats|length }}</h3>
+                    <p>Активных чатов</p>
                 </div>
             </div>
+        </div>
+        
+        <div id="chat-container" style="display: none; height: 100%;">
+            <!-- Будет заполняться JavaScript -->
         </div>
     </div>
 </div>
 
 <script>
+// Глобальные переменные
+let currentChatUser = null;
+let ws = null;
+const accessToken = "{{ access_token }}";
+
 document.addEventListener('DOMContentLoaded', function() {
-    // Инициализация поиска
+    initChats();
+    connectWebSocket();
+    
+    // Проверяем непрочитанные сообщения каждые 10 секунд
+    setInterval(checkUnreadMessages, 10000);
+});
+
+function initChats() {
+    const chatItems = document.querySelectorAll('.chat-item');
+    chatItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const userId = this.getAttribute('data-user-id');
+            const username = this.getAttribute('data-username').replace('@', '');
+            const name = this.querySelector('h4').textContent;
+            
+            // Обновляем активный элемент
+            chatItems.forEach(i => i.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Открываем чат
+            openChat(parseInt(userId), username, name);
+        });
+    });
+    
+    // Поиск
     const searchInput = document.getElementById('chat-search');
     if (searchInput) {
         searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase().trim();
-            const chatItems = document.querySelectorAll('.chat-item');
+            const term = this.value.toLowerCase().trim();
+            const items = document.querySelectorAll('.chat-item');
             
-            chatItems.forEach(item => {
-                const username = item.getAttribute('data-username').toLowerCase();
+            items.forEach(item => {
                 const name = item.querySelector('h4').textContent.toLowerCase();
+                const username = item.getAttribute('data-username').toLowerCase();
                 
-                if (searchTerm === '' || username.includes(searchTerm) || name.includes(searchTerm)) {
+                if (term === '' || name.includes(term) || username.includes(term)) {
                     item.style.display = 'flex';
                 } else {
                     item.style.display = 'none';
@@ -106,98 +148,569 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+}
+
+function connectWebSocket() {
+    if (!accessToken) {
+        console.error('No access token');
+        return;
+    }
     
-    // Инициализация чатов
-    const chatItems = document.querySelectorAll('.chat-item');
-    chatItems.forEach(item => {
-        item.addEventListener('click', function() {
-            // Убираем активный класс
-            chatItems.forEach(i => i.classList.remove('active'));
-            
-            // Добавляем активный класс
-            this.classList.add('active');
-            
-            // Получаем информацию о пользователе
-            const username = this.getAttribute('data-username');
-            const name = this.querySelector('h4').textContent;
-            
-            // Показываем уведомление
-            showNotification(`Выбран чат с ${name} ${username}`);
-        });
-    });
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/${accessToken}`;
     
-    // Функция показа уведомления
-    function showNotification(message) {
-        // Создаем стили для уведомления если их нет
-        if (!document.getElementById('tg-notification-style')) {
-            const style = document.createElement('style');
-            style.id = 'tg-notification-style';
-            style.textContent = `
-                .tg-notification {
-                    position: fixed;
-                    top: 80px;
-                    right: 20px;
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = function() {
+        console.log('WebSocket connected');
+    };
+    
+    ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        handleWebSocketMessage(data);
+    };
+    
+    ws.onclose = function() {
+        console.log('WebSocket disconnected, reconnecting...');
+        setTimeout(connectWebSocket, 3000);
+    };
+    
+    ws.onerror = function(error) {
+        console.error('WebSocket error:', error);
+    };
+}
+
+function handleWebSocketMessage(data) {
+    console.log('WebSocket message:', data);
+    
+    switch(data.type) {
+        case 'new_message':
+            if (currentChatUser && data.message.sender_id === currentChatUser.id) {
+                // Добавить сообщение в текущий чат
+                addMessageToChat(data.message, false);
+                
+                // Прокрутить вниз
+                setTimeout(() => {
+                    const messagesContainer = document.getElementById('chat-messages');
+                    if (messagesContainer) {
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                }, 100);
+            }
+            
+            // Обновить список чатов
+            updateChatList();
+            break;
+            
+        case 'messages_read':
+            // Можно обновить статус прочтения в UI
+            console.log(`Messages read: ${data.count}`);
+            break;
+            
+        case 'user_typing':
+            if (currentChatUser && data.sender_id === currentChatUser.id) {
+                showTypingIndicator(data.is_typing);
+            }
+            break;
+    }
+}
+
+function openChat(userId, username, name) {
+    currentChatUser = { id: userId, username: username, name: name };
+    
+    // Показать контейнер чата
+    document.getElementById('empty-chat').style.display = 'none';
+    const chatContainer = document.getElementById('chat-container');
+    chatContainer.style.display = 'flex';
+    chatContainer.style.flexDirection = 'column';
+    chatContainer.style.height = '100%';
+    
+    // Загрузить сообщения
+    loadMessages(userId);
+    
+    // Создать интерфейс чата
+    chatContainer.innerHTML = `
+        <div class="chat-header" style="
+            height: 60px;
+            border-bottom: 1px solid var(--tg-border);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            background: var(--tg-bg);
+            flex-shrink: 0;
+        ">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="chat-user-avatar" style="
+                    width: 40px;
+                    height: 40px;
+                    background: linear-gradient(135deg, var(--tg-blue), #4dabf7);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: 600;
+                    font-size: 16px;
+                ">
+                    ${name[0].toUpperCase()}
+                </div>
+                <div>
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 600;">${name}</h3>
+                    <p style="margin: 0; color: var(--tg-text-secondary); font-size: 13px;">@${username}</p>
+                </div>
+            </div>
+            <div style="margin-left: auto; display: flex; gap: 8px;">
+                <button onclick="startCall(${userId})" class="chat-btn" style="
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    border: 1px solid var(--tg-border);
                     background: var(--tg-bg);
                     color: var(--tg-text-primary);
-                    padding: 12px 20px;
-                    border-radius: 10px;
-                    box-shadow: var(--tg-shadow-lg);
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">
+                    <i class="fas fa-phone"></i>
+                </button>
+                <button onclick="startVideoCall(${userId})" class="chat-btn" style="
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
                     border: 1px solid var(--tg-border);
-                    border-left: 4px solid var(--tg-blue);
-                    z-index: 9999;
-                    animation: tgSlideIn 0.3s ease;
-                    max-width: 300px;
-                    font-size: 14px;
-                }
-                
-                @keyframes tgSlideIn {
-                    from {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                }
-                
-                @keyframes tgSlideOut {
-                    from {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                    to {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                }
+                    background: var(--tg-bg);
+                    color: var(--tg-text-primary);
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">
+                    <i class="fas fa-video"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div id="chat-messages" style="
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        ">
+            <!-- Сообщения будут здесь -->
+        </div>
+        
+        <div id="typing-indicator" style="
+            display: none;
+            padding: 10px 20px;
+            color: var(--tg-text-secondary);
+            font-size: 13px;
+            font-style: italic;
+        ">
+            <i class="fas fa-pencil-alt"></i> Печатает...
+        </div>
+        
+        <div class="chat-input" style="
+            border-top: 1px solid var(--tg-border);
+            padding: 16px 20px;
+            background: var(--tg-bg);
+            flex-shrink: 0;
+        ">
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <button onclick="showNotification('Добавить вложение', 'info')" style="
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    border: 1px solid var(--tg-border);
+                    background: var(--tg-bg);
+                    color: var(--tg-text-primary);
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <input type="text" 
+                       id="message-input" 
+                       placeholder="Сообщение..." 
+                       style="
+                           flex: 1;
+                           height: 40px;
+                           padding: 0 16px;
+                           border: 1px solid var(--tg-border);
+                           border-radius: 20px;
+                           font-size: 14px;
+                           outline: none;
+                           font-family: inherit;
+                       "
+                       onkeypress="if(event.key === 'Enter') sendMessage()"
+                       oninput="sendTypingIndicator()">
+                <button onclick="sendMessage()" style="
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    background: var(--tg-blue);
+                    color: white;
+                    border: none;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Установить фокус на поле ввода
+    setTimeout(() => {
+        document.getElementById('message-input')?.focus();
+    }, 100);
+}
+
+async function loadMessages(userId) {
+    try {
+        const response = await fetch(`/api/messages/${userId}`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const messages = await response.json();
+            displayMessages(messages);
+        }
+    } catch (error) {
+        console.error('Error loading messages:', error);
+    }
+}
+
+function displayMessages(messages) {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    let currentDate = null;
+    
+    messages.forEach(msg => {
+        // Показывать дату если она изменилась
+        const msgDate = new Date(msg.created_at).toLocaleDateString();
+        if (msgDate !== currentDate) {
+            currentDate = msgDate;
+            const dateDiv = document.createElement('div');
+            dateDiv.style.cssText = 'text-align: center; margin: 10px 0;';
+            dateDiv.innerHTML = `
+                <span style="
+                    background: var(--tg-secondary-bg);
+                    padding: 6px 16px;
+                    border-radius: 12px;
+                    font-size: 12px;
+                    color: var(--tg-text-secondary);
+                ">
+                    ${formatDate(msg.created_at)}
+                </span>
             `;
-            document.head.appendChild(style);
+            container.appendChild(dateDiv);
         }
         
-        // Создаем уведомление
-        const notification = document.createElement('div');
-        notification.className = 'tg-notification';
-        notification.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <i class="fas fa-info-circle" style="color: var(--tg-blue);"></i>
-                <span>${message}</span>
+        addMessageToChat(msg, true);
+    });
+    
+    // Прокрутить вниз
+    setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+    }, 100);
+}
+
+function addMessageToChat(msg, isFromHistory = false) {
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+    
+    const isOutgoing = msg.sender_id !== currentChatUser.id;
+    const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.style.cssText = `
+        display: flex;
+        gap: 10px;
+        align-self: ${isOutgoing ? 'flex-end' : 'flex-start'};
+        max-width: 70%;
+        animation: ${isFromHistory ? 'none' : 'fadeIn 0.3s ease'};
+    `;
+    
+    messageDiv.innerHTML = isOutgoing ? `
+        <div style="flex: 1; text-align: right;">
+            <div style="
+                background: var(--tg-blue);
+                padding: 12px 16px;
+                border-radius: 12px 12px 4px 12px;
+                display: inline-block;
+                max-width: 100%;
+            ">
+                <p style="margin: 0; color: white; word-wrap: break-word;">${escapeHtml(msg.content)}</p>
             </div>
-        `;
-        
-        // Добавляем уведомление
-        document.body.appendChild(notification);
-        
-        // Удаляем через 3 секунды
-        setTimeout(() => {
-            notification.style.animation = 'tgSlideOut 0.3s ease';
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 300);
-        }, 3000);
+            <div style="
+                font-size: 11px;
+                color: var(--tg-text-muted);
+                margin-top: 4px;
+                padding-right: 8px;
+            ">
+                ${time} ${msg.is_read ? '<i class="fas fa-check-double" style="margin-left: 4px; color: #3390ec;"></i>' : '<i class="fas fa-check" style="margin-left: 4px;"></i>'}
+            </div>
+        </div>
+        <div style="
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--tg-blue), #3390ec);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+        ">
+            Я
+        </div>
+    ` : `
+        <div style="
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--tg-green), #32a955);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+        ">
+            ${msg.sender_username[0].toUpperCase()}
+        </div>
+        <div style="flex: 1;">
+            <div style="
+                background: var(--tg-secondary-bg);
+                padding: 12px 16px;
+                border-radius: 12px 12px 12px 4px;
+                max-width: 100%;
+            ">
+                <p style="margin: 0; color: var(--tg-text-primary); word-wrap: break-word;">${escapeHtml(msg.content)}</p>
+            </div>
+            <div style="
+                font-size: 11px;
+                color: var(--tg-text-muted);
+                margin-top: 4px;
+                padding-left: 8px;
+            ">
+                ${time}
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(messageDiv);
+}
+
+function sendMessage() {
+    const input = document.getElementById('message-input');
+    const message = input.value.trim();
+    
+    if (!message || !currentChatUser || !ws || ws.readyState !== WebSocket.OPEN) {
+        return;
     }
-});
+    
+    // Отправить через WebSocket
+    ws.send(JSON.stringify({
+        type: 'message',
+        content: message,
+        receiver_id: currentChatUser.id
+    }));
+    
+    // Очистить поле ввода
+    input.value = '';
+    input.focus();
+    
+    // Скрыть индикатор печатания
+    sendTypingIndicator(false);
+}
+
+function sendTypingIndicator(isTyping = true) {
+    if (!currentChatUser || !ws || ws.readyState !== WebSocket.OPEN) {
+        return;
+    }
+    
+    ws.send(JSON.stringify({
+        type: 'typing',
+        receiver_id: currentChatUser.id,
+        is_typing: isTyping
+    }));
+}
+
+function showTypingIndicator(show) {
+    const indicator = document.getElementById('typing-indicator');
+    if (indicator) {
+        indicator.style.display = show ? 'block' : 'none';
+    }
+}
+
+async function checkUnreadMessages() {
+    try {
+        const response = await fetch('/api/unread_count', {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            updateUnreadBadges();
+        }
+    } catch (error) {
+        console.error('Error checking unread messages:', error);
+    }
+}
+
+function updateUnreadBadges() {
+    // Обновить бейджи непрочитанных сообщений
+    // Можно реализовать при необходимости
+}
+
+function updateChatList() {
+    // Обновить список чатов (можно обновлять через AJAX)
+    // Для простоты можно перезагружать страницу
+    // location.reload();
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    
+    if (diff < 86400000) { // Меньше суток
+        return 'Сегодня';
+    } else if (diff < 172800000) { // Меньше двух суток
+        return 'Вчера';
+    } else {
+        return date.toLocaleDateString();
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function startCall(userId) {
+    showNotification('Функция звонков будет добавлена позже', 'info');
+}
+
+function startVideoCall(userId) {
+    showNotification('Функция видеозвонков будет добавлена позже', 'info');
+}
+
+// Уведомления (из старого кода)
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = 'tg-notification';
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class="fas fa-${getNotificationIcon(type)}"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    notification.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        background: ${getNotificationColor(type)};
+        color: white;
+        padding: 16px 24px;
+        border-radius: 10px;
+        box-shadow: var(--tg-shadow-lg);
+        z-index: 9999;
+        animation: slideInRight 0.3s ease;
+        max-width: 320px;
+        border-left: 4px solid ${getNotificationBorderColor(type)};
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+}
+
+function getNotificationIcon(type) {
+    const icons = {
+        'success': 'check-circle',
+        'error': 'exclamation-circle',
+        'warning': 'exclamation-triangle',
+        'info': 'info-circle'
+    };
+    return icons[type] || 'info-circle';
+}
+
+function getNotificationColor(type) {
+    const colors = {
+        'success': '#28a745',
+        'error': '#dc3545',
+        'warning': '#ffc107',
+        'info': '#0088cc'
+    };
+    return colors[type] || '#0088cc';
+}
+
+function getNotificationBorderColor(type) {
+    const colors = {
+        'success': '#1e7e34',
+        'error': '#bd2130',
+        'warning': '#d39e00',
+        'info': '#0069d9'
+    };
+    return colors[type] || '#0069d9';
+}
 </script>
+
+<style>
+.unread-badge {
+    background: var(--tg-red);
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOutRight {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
+</style>
 {% endblock %}

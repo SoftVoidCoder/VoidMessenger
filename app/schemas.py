@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
+from pydantic import BaseModel
 
 class UserBase(BaseModel):
     username: str
@@ -24,6 +25,34 @@ class UserResponse(UserBase):
     
     class Config:
         from_attributes = True
+
+class MessageBase(BaseModel):
+    content: str
+    receiver_id: int
+
+class MessageCreate(MessageBase):
+    pass
+
+class MessageResponse(BaseModel):
+    id: int
+    sender_id: int
+    receiver_id: int
+    content: str
+    is_read: bool
+    created_at: datetime
+    sender_username: str
+    receiver_username: str
+    
+    class Config:
+        from_attributes = True
+
+class ChatResponse(BaseModel):
+    user_id: int
+    username: str
+    full_name: str
+    last_message: Optional[str] = None
+    last_message_time: Optional[datetime] = None
+    unread_count: int = 0
 
 class Token(BaseModel):
     access_token: str
